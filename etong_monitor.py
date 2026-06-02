@@ -47,14 +47,14 @@ SSO_PASSWORD = ""              # SSO 密码
 
 # --- 房间配置 ---
 # 电费查询的房间信息，从 easytong 网页抓包获取
-# 如果不知道怎么获取，先登录 https://etong.sdjzu.edu.cn 查看电费页面，用 F12 抓包
+# 查看 rooms.json 文件可以找到你的房间号
 ROOM_CONFIG = {
-    "AccNum": "0",             # 账户号
-    "AreaNo": "1",             # 校区编号
-    "BuildingNo": "2",         # 楼栋编号
-    "FloorNo": "0",            # 楼层编号
-    "ItemNum": "2",            # 项目编号
-    "RoomNo": "10624",         # 房间号（改成你自己的）
+    "AccNum": "0",             # 账户号（一般为 "0"）
+    "AreaNo": "1",             # 校区编号（"1" = 济南校区）
+    "BuildingNo": "2",         # 楼栋编号（如 "2" = 梅二，查看 rooms.json 中的 building_no）
+    "FloorNo": "0",            # 楼层编号（一般为 "0"）
+    "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
+    "RoomNo": "10624",         # 房间号（查看 rooms.json 中对应房间的 no 值）
 }
 
 # --- 认证 Token ---
