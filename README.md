@@ -166,7 +166,7 @@ systemctl disable etong-monitor
 
 ```python
 ROOM_CONFIG = {
-    "AccNum": "0",             # 账户号（一般为 "0"）
+    "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
     "AreaNo": "1",             # 校区编号（"1" = 济南校区）
     "BuildingNo": "2",         # 楼栋编号（"2" = 梅二）
     "FloorNo": "0",            # 楼层编号（一般为 "0"）
