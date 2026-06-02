@@ -41,21 +41,21 @@ vi /opt/etong/etong_monitor.py
 
 ```python
 # --- 登录账号 ---
-SSO_USERNAME = "你的学号"
-SSO_PASSWORD = "你的密码"
+SSO_USERNAME = "你的学号"                # SSO 统一认证学号
+SSO_PASSWORD = "你的密码"                # SSO 密码
 
 # --- 房间配置 ---
 ROOM_CONFIG = {
-    "AccNum": "0",
-    "AreaNo": "1",
-    "BuildingNo": "2",
-    "FloorNo": "0",
-    "ItemNum": "2",
-    "RoomNo": "你的房间号",
+    "AccNum": "0",                       # 账户类型（"0" = 济南校区，"1" = 烟台校区）
+    "AreaNo": "1",                       # 校区编号（"1" = 济南校区）
+    "BuildingNo": "2",                   # 楼栋编号（查看 rooms.json 中的 building_no）
+    "FloorNo": "0",                      # 楼层编号（一般为 "0"）
+    "ItemNum": "2",                      # 缴费项目（"2" = 济南校区电控缴费）
+    "RoomNo": "10624",                   # 房间号（查看 rooms.json 中对应房间的 no 值）
 }
 
 # --- 推送配置 ---
-WECOM_WEBHOOK = "你的企业微信 Webhook"  # 至少配置一个
+WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个推送渠道
 ```
 
 ### 4. 测试运行
@@ -124,7 +124,7 @@ systemctl disable etong-monitor
 |--------|------|--------|
 | `SSO_USERNAME` | SSO 学号 | 必填 |
 | `SSO_PASSWORD` | SSO 密码 | 必填 |
-| `ROOM_CONFIG` | 房间配置 | 需要抓包获取 |
+| `ROOM_CONFIG` | 房间配置 | 查看 rooms.json |
 | `LOW_BALANCE_THRESHOLD` | 低电量阈值（度） | `10.0` |
 | `CHECK_INTERVAL` | 检查间隔（秒） | `3600` |
 | `DAILY_REPORT_HOUR` | 日报时间（小时） | `19` |
@@ -168,23 +168,14 @@ systemctl disable etong-monitor
 ROOM_CONFIG = {
     "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
     "AreaNo": "1",             # 校区编号（"1" = 济南校区）
-    "BuildingNo": "2",         # 楼栋编号（"2" = 梅二）
+    "BuildingNo": "2",         # 楼栋编号（如 "2" = 梅二，查看 rooms.json 中的 building_no）
     "FloorNo": "0",            # 楼层编号（一般为 "0"）
     "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
     "RoomNo": "10624",         # 房间号（查看 rooms.json）
 }
 ```
 
-### 楼栋编号对照
 
-| 编号 | 楼栋 | 编号 | 楼栋 |
-|------|------|------|------|
-| 1 | 梅一 | 2 | 梅二 |
-| 3 | 梅三 | 4 | 梅四 |
-| 5 | 梅五 | 6 | 梅六 |
-| ... | ... | ... | ... |
-
-完整数据请查看 `rooms.json`
 
 ## 📝 运行示例
 
@@ -204,7 +195,7 @@ ROOM_CONFIG = {
 A: 检查 SSO 账号密码是否正确，网络是否正常。
 
 **Q: 如何修改房间？**
-A: 重新抓包获取新的 `ROOM_CONFIG`，替换脚本中的配置。
+A: 在 `rooms.json` 中找到新房间的编号，替换脚本中的 `ROOM_CONFIG`。
 
 **Q: 推送收不到？**
 A: 检查推送渠道配置是否正确，至少配置一个渠道。
