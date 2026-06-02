@@ -162,16 +162,16 @@ systemctl disable etong-monitor
 2. 找到你的房间号对应的 `no` 值
 3. 修改脚本中的 `ROOM_CONFIG`
 
-示例（梅一 101 宿舍）：
+示例（梅二 413 宿舍）：
 
 ```python
 ROOM_CONFIG = {
-    "AccNum": "0",
-    "AreaNo": "1",
-    "BuildingNo": "1",   # 楼栋编号
-    "FloorNo": "0",
-    "ItemNum": "2",
-    "RoomNo": "10031",   # 房间号（从 rooms.json 查找）
+    "AccNum": "0",             # 账户号（一般为 "0"）
+    "AreaNo": "1",             # 校区编号（"1" = 济南校区）
+    "BuildingNo": "2",         # 楼栋编号（"2" = 梅二）
+    "FloorNo": "0",            # 楼层编号（一般为 "0"）
+    "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
+    "RoomNo": "10624",         # 房间号（查看 rooms.json）
 }
 ```
 
