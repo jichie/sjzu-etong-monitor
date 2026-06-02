@@ -46,10 +46,10 @@ SSO_USERNAME = ""              # 你的学号，如 "STUDENT_ID_PLACEHOLDER"
 SSO_PASSWORD = ""              # SSO 密码
 
 # --- 房间配置 ---
-# 电费查询的房间信息，从 easytong 网页抓包获取
+# 电费查询的房间信息
 # 查看 rooms.json 文件可以找到你的房间号
 ROOM_CONFIG = {
-    "AccNum": "0",             # 账户号（一般为 "0"）
+    "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
     "AreaNo": "1",             # 校区编号（"1" = 济南校区）
     "BuildingNo": "2",         # 楼栋编号（如 "2" = 梅二，查看 rooms.json 中的 building_no）
     "FloorNo": "0",            # 楼层编号（一般为 "0"）
