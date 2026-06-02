@@ -1,0 +1,13 @@
+# Logs
+*.log
+
+# Runtime files
+/tmp/etong_*.json
+
+# Python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db
