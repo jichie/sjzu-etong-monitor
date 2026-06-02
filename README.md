@@ -154,14 +154,37 @@ systemctl disable etong-monitor
 2. 微信登录获取 Token
 3. 填入 `PUSHPLUS_TOKEN`
 
-## 🔧 如何获取房间配置
+## 🔧 如何配置房间
 
-1. 打开 [easytong](https://etong.sdjzu.edu.cn)
-2. 登录后进入电费查询页面
-3. 按 F12 打开开发者工具
-4. 切换到 Network 标签
-5. 查询电费，找到 `GetPayAccInfoNew` 请求
-6. 从请求参数中复制房间配置
+项目已提供 `rooms.json` 文件，包含全校所有房间号数据。
+
+1. 打开 `rooms.json`，找到你的楼栋
+2. 找到你的房间号对应的 `no` 值
+3. 修改脚本中的 `ROOM_CONFIG`
+
+示例（梅一 101 宿舍）：
+
+```python
+ROOM_CONFIG = {
+    "AccNum": "0",
+    "AreaNo": "1",
+    "BuildingNo": "1",   # 楼栋编号
+    "FloorNo": "0",
+    "ItemNum": "2",
+    "RoomNo": "10031",   # 房间号（从 rooms.json 查找）
+}
+```
+
+### 楼栋编号对照
+
+| 编号 | 楼栋 | 编号 | 楼栋 |
+|------|------|------|------|
+| 1 | 梅一 | 2 | 梅二 |
+| 3 | 梅三 | 4 | 梅四 |
+| 5 | 梅五 | 6 | 梅六 |
+| ... | ... | ... | ... |
+
+完整数据请查看 `rooms.json`
 
 ## 📝 运行示例
 
