@@ -176,6 +176,17 @@ ROOM_NAME = "101"             # 房间名称（与 rooms.json 中 name 一致）
 
 > 如果之前使用手动填写编号的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，在 `ROOM_CONFIG` 中填写编号即可。
 
+### ⚠️ 获取签名（Time / Sign）
+
+`FIXED_TIME` 和 `FIXED_SIGN` 与房间绑定，**更换房间后需要重新抓包**。抓包方法：
+
+1. 浏览器打开 [etong 电费页面](https://etong.sdjzu.edu.cn/easytong_webapp/index.html) 并登录
+2. 按 `F12` 打开开发者工具 → `Network`（网络）标签
+3. 在页面中选择你的楼栋和房间，点击查询
+4. 在 Network 中找到 `GetPayAccInfoNew` 请求
+5. 点击该请求 → `Payload`（请求载荷）→ 复制 `Time` 和 `Sign` 的值
+6. 替换脚本中对应校区的 `JINAN_FIXED_TIME`/`JINAN_FIXED_SIGN` 或 `YANTAI_FIXED_TIME`/`YANTAI_FIXED_SIGN`
+
 
 
 ## 📝 运行示例
@@ -208,9 +219,10 @@ A: 正常现象，脚本会自动重新登录。
 
 ### v7.3 (2026-06-04)
 
-- 🏫 **烟台校区支持**：自动识别校区（济南/烟台），设置正确的查询参数
+- 🏫 **烟台校区支持**：自动识别校区（济南/烟台），设置正确的查询参数和签名
 - 📦 新增 `烟台校区_rooms.json`，烟台用户只需重命名为 `rooms.json` 即可使用
-- 🔍 校区自动检测：根据 `rooms.json` 中的 `area_no` 自动切换 `AccNum`/`AreaNo`/`ItemNum`
+- 🔍 校区自动检测：根据 `rooms.json` 中的 `area_no` 自动切换 `AccNum`/`AreaNo`/`ItemNum`/签名
+- ⚠️ **重要**：`FIXED_TIME`/`FIXED_SIGN` 与房间绑定，更换房间需重新抓包
 
 ### v7.2 (2026-06-04)
 

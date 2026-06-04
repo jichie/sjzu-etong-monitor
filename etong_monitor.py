@@ -44,14 +44,14 @@ except ImportError:
 # --- 登录账号 ---
 # SSO 统一认证账号（学号）和密码
 # 首次使用需要填写，脚本会自动登录获取 token
-SSO_USERNAME = ""              # 你的学号，如 "STUDENT_ID_PLACEHOLDER"
-SSO_PASSWORD = ""              # SSO 密码
+SSO_USERNAME = "STUDENT_ID_PLACEHOLDER"              # 你的学号，如 "STUDENT_ID_PLACEHOLDER"
+SSO_PASSWORD = "PASSWORD_PLACEHOLDER"              # SSO 密码
 
 # --- 房间配置 ---
 # 只需要填写楼栋名称和房间名称，程序会自动从 rooms.json 查找对应编号
 # 例如：BUILDING_NAME = "梅二-照明"  ROOM_NAME = "413"
-BUILDING_NAME = ""             # 楼栋名称（与 rooms.json 中 building_name 一致）
-ROOM_NAME = ""                 # 房间名称（与 rooms.json 中 name 一致）
+BUILDING_NAME = "1号楼"             # 楼栋名称（与 rooms.json 中 building_name 一致）
+ROOM_NAME = "107"                 # 房间名称（与 rooms.json 中 name 一致）
 
 # 以下参数一般不需要修改，BuildingNo 和 RoomNo 由程序自动填充
 ROOM_CONFIG = {
@@ -68,9 +68,18 @@ ROOM_CONFIG = {
 # 如果留空，脚本会通过 SSO 登录自动获取
 JWT_TOKEN = ""                 # JWT Token（留空则自动获取）
 
-# 以下两个参数从抓包获取，一般不需要修改
-FIXED_TIME = "20260326085915"  # 时间戳参数
-FIXED_SIGN = "9466192480bb36aee07b22ee0bff8398"  # 签名参数
+# 以下参数从浏览器抓包获取（每个房间不同，必须针对自己的房间抓包）
+# 抓包方法：浏览器 F12 → Network → 筛选 GetPayAccInfoNew → 复制请求体中的 Time 和 Sign
+# 济南校区（示例，请替换为你自己房间的抓包值）
+JINAN_FIXED_TIME = "20260326085915"
+JINAN_FIXED_SIGN = "9466192480bb36aee07b22ee0bff8398"
+# 烟台校区（示例，请替换为你自己房间的抓包值）
+YANTAI_FIXED_TIME = "20260604201012"
+YANTAI_FIXED_SIGN = "48602f9988d01f8616153f979b9b9e45"
+
+# 运行时使用的签名（由 resolve_room_config 自动设置）
+FIXED_TIME = JINAN_FIXED_TIME
+FIXED_SIGN = JINAN_FIXED_SIGN
 
 # --- 监控设置 ---
 LOW_BALANCE_THRESHOLD = 10.0   # 低电量告警阈值（度）
@@ -88,7 +97,7 @@ ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "room
 # --- 推送配置 ---
 # 至少配置一个推送渠道，否则告警无法发送
 # 企业微信机器人 Webhook
-WECOM_WEBHOOK = ""
+WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=WEBHOOK_KEY_PLACEHOLDER"
 # Bark 推送地址（iOS）
 BARK_KEY = ""
 # PushPlus Token
@@ -205,6 +214,7 @@ def load_rooms_data():
 
 def resolve_room_config():
     """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo，并自动设置校区参数"""
+    global FIXED_TIME, FIXED_SIGN
     load_rooms_data()
 
     # 自动设置校区参数
@@ -213,11 +223,15 @@ def resolve_room_config():
         ROOM_CONFIG["AccNum"] = "1"
         ROOM_CONFIG["AreaNo"] = "0"
         ROOM_CONFIG["ItemNum"] = "6"
+        FIXED_TIME = YANTAI_FIXED_TIME
+        FIXED_SIGN = YANTAI_FIXED_SIGN
     else:
         # 济南校区（默认）
         ROOM_CONFIG["AccNum"] = "0"
         ROOM_CONFIG["AreaNo"] = "1"
         ROOM_CONFIG["ItemNum"] = "2"
+        FIXED_TIME = JINAN_FIXED_TIME
+        FIXED_SIGN = JINAN_FIXED_SIGN
 
     if BUILDING_NAME and ROOM_NAME:
         # 查找楼栋编号
