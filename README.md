@@ -192,31 +192,34 @@ A: 正常现象，脚本会自动重新登录。
 
 ## 📝 更新日志
 
-### v8.0 (2026-06-04)
+### v8.1
 
-- 🔑 **动态签名**：逆向签名算法 `MD5(AccNum|AreaNo|BuildingNo|FloorNo|ItemNum|RoomNo|Time|MD5_KEY)`，无需再手动抓包
+- 📂 **双文件自动识别**：同时加载 `rooms.json` + `烟台校区_rooms.json`，无需重命名
+- 🏠 填楼栋名+房间名即可，自动在双校区数据中搜索匹配
+- 📦 部署只需下载 3 个文件，无需手动区分校区
+
+### v8.0
+
+- 🔑 **动态签名**：逆向签名算法 `MD5(AccNum|AreaNo|BuildingNo|FloorNo|ItemNum|RoomNo|Time|MD5_KEY)`，无需抓包
 - 🎉 配置从 6 项减少到 4 项：学号、密码、楼栋名、房间名
-- 🗑️ 移除 `FIXED_TIME`/`FIXED_SIGN` 配置
+- 🗑️ 移除 `FIXED_TIME`/`FIXED_SIGN`
+- 🐛 修复烟台校区 `AccNum` 固定为 `0`
 
-- 🏫 **烟台校区支持**：自动识别校区（济南/烟台），设置正确的查询参数和签名
-- 📦 新增 `烟台校区_rooms.json`，烟台用户只需重命名为 `rooms.json` 即可使用
-- 🔍 校区自动检测：根据 `rooms.json` 中的 `area_no` 自动切换 `AccNum`/`AreaNo`/`ItemNum`/签名
-- ⚠️ **重要**：`FIXED_TIME`/`FIXED_SIGN` 与房间绑定，更换房间需重新抓包
+### v7.3
 
-### v7.2 (2026-06-04)
+- 🏫 烟台校区支持：自动识别校区，设置正确的查询参数
+- 📦 新增 `烟台校区_rooms.json`
 
-- 🏠 **配置简化**：只需填 `BUILDING_NAME` + `ROOM_NAME`，程序自动从 `rooms.json` 查找编号
-- 📱 **推送可读**：推送消息显示楼栋名+房间名（如"梅二-照明 413"），不再只显示数字编号
-- 🔑 **自动获取 etToken**：修复 SSO 登录后无法自动获取 token 导致查询失败的问题
-- 🔄 **向后兼容**：仍支持手动填写 `BuildingNo` + `RoomNo` 的旧配置方式
+### v7.2
+
+- 🏠 配置简化：填 `BUILDING_NAME` + `ROOM_NAME`，自动查 rooms.json
+- 📱 推送显示可读名称（如"梅二-照明 413"）
+- 🔑 自动获取 etToken：修复 SSO 登录后查询失败
+- 🔄 向后兼容手动填写编号的旧方式
 
 ### v7.0
 
-- 首个正式版本
-- SSO 自动登录
-- 低电量告警 + 每日报告
-- 支持企业微信 / Bark / PushPlus 推送
-- systemd 开机自启
+- 首个正式版本：SSO 登录 / 低电量告警 / 每日报告 / 多渠道推送 / systemd 自启
 
 ## 📜 许可证
 
