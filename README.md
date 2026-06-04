@@ -43,7 +43,7 @@ wget -O /opt/etong/rooms.json https://raw.githubusercontent.com/jichie/sjzu-eton
 vi /opt/etong/etong_monitor.py
 ```
 
-修改以下 6 项：
+只需修改 4 项：
 
 ```python
 # --- 登录账号 ---
@@ -53,14 +53,6 @@ SSO_PASSWORD = "你的密码"
 # --- 房间配置 ---
 BUILDING_NAME = "梅二-照明"               # 楼栋名称
 ROOM_NAME = "413"                        # 房间名称
-
-# --- 签名参数（必须抓包！）---
-# 抓包方法见下方「获取签名」章节
-JINAN_FIXED_TIME = "你的Time"            # 济南校区 Time
-JINAN_FIXED_SIGN = "你的Sign"            # 济南校区 Sign
-# 烟台校区用户改为填写下面两项
-# YANTAI_FIXED_TIME = "你的Time"
-# YANTAI_FIXED_SIGN = "你的Sign"
 
 # --- 推送配置 ---
 WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个
@@ -134,10 +126,6 @@ systemctl disable etong-monitor
 | `SSO_PASSWORD` | SSO 密码 | 必填 |
 | `BUILDING_NAME` | 楼栋名称（如"梅二-照明"） | 必填 |
 | `ROOM_NAME` | 房间名称（如"413"） | 必填 |
-| `JINAN_FIXED_TIME` | 济南校区签名 Time（抓包获取） | 必填 |
-| `JINAN_FIXED_SIGN` | 济南校区签名 Sign（抓包获取） | 必填 |
-| `YANTAI_FIXED_TIME` | 烟台校区签名 Time（抓包获取） | 烟台必填 |
-| `YANTAI_FIXED_SIGN` | 烟台校区签名 Sign（抓包获取） | 烟台必填 |
 | `WECOM_WEBHOOK` | 企业微信 Webhook | 选填 |
 | `BARK_KEY` | Bark 推送地址 | 选填 |
 | `PUSHPLUS_TOKEN` | PushPlus Token | 选填 |
@@ -189,17 +177,6 @@ ROOM_NAME = "101"             # 房间名称（与 rooms.json 中 name 一致）
 
 > 如果之前使用手动填写编号的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，在 `ROOM_CONFIG` 中填写编号即可。
 
-### ⚠️ 获取签名（Time / Sign）
-
-`FIXED_TIME` 和 `FIXED_SIGN` 与房间绑定，**更换房间后需要重新抓包**。抓包方法：
-
-1. 浏览器打开 [etong 电费页面](https://etong.sdjzu.edu.cn/easytong_webapp/index.html) 并登录
-2. 按 `F12` 打开开发者工具 → `Network`（网络）标签
-3. 在页面中选择你的楼栋和房间，点击查询
-4. 在 Network 中找到 `GetPayAccInfoNew` 请求
-5. 点击该请求 → `Payload`（请求载荷）→ 复制 `Time` 和 `Sign` 的值
-6. 替换脚本中对应校区的 `JINAN_FIXED_TIME`/`JINAN_FIXED_SIGN` 或 `YANTAI_FIXED_TIME`/`YANTAI_FIXED_SIGN`
-
 
 
 ## 📝 运行示例
@@ -230,7 +207,11 @@ A: 正常现象，脚本会自动重新登录。
 
 ## 📝 更新日志
 
-### v7.3 (2026-06-04)
+### v8.0 (2026-06-04)
+
+- 🔑 **动态签名**：逆向签名算法 `MD5(AccNum|AreaNo|BuildingNo|FloorNo|ItemNum|RoomNo|Time|MD5_KEY)`，无需再手动抓包
+- 🎉 配置从 6 项减少到 4 项：学号、密码、楼栋名、房间名
+- 🗑️ 移除 `FIXED_TIME`/`FIXED_SIGN` 配置
 
 - 🏫 **烟台校区支持**：自动识别校区（济南/烟台），设置正确的查询参数和签名
 - 📦 新增 `烟台校区_rooms.json`，烟台用户只需重命名为 `rooms.json` 即可使用
