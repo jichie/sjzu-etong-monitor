@@ -24,8 +24,10 @@ pip3 install requests pycryptodome
 ```bash
 mkdir -p /opt/etong
 
-# 下载脚本和两个校区的房间数据（三个文件缺一不可）
+# 下载脚本（一个文件即可，房间数据自动拉取）
 wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/etong_monitor.py
+
+# 可选：下载房间数据缓存，加速启动
 wget -O /opt/etong/rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/rooms.json
 wget -O /opt/etong/烟台校区_rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/烟台校区_rooms.json
 ```
@@ -152,7 +154,7 @@ systemctl disable etong-monitor
 
 ## 🔧 如何配置房间
 
-只需填写楼栋名称和房间名称，程序自动在两个校区的数据中搜索。
+只需填写楼栋名称和房间名称，程序自动在两个校区的数据中搜索（有本地 JSON 秒加载，无则通过 API 拉取）。
 
 ```python
 BUILDING_NAME = "梅二-照明"     # 济南校区示例
@@ -162,8 +164,6 @@ ROOM_NAME = "413"
 # BUILDING_NAME = "1号楼"
 # ROOM_NAME = "101"
 ```
-
-程序会自动识别校区并设置正确的查询参数，无需手动区分。
 
 > 如果之前使用手动填写编号的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，在 `ROOM_CONFIG` 中填写编号即可。
 
@@ -196,6 +196,12 @@ A: 检查推送渠道配置是否正确，至少配置一个渠道。
 A: 正常现象，脚本会自动重新登录。
 
 ## 📝 更新日志
+
+### v8.2
+
+- 📡 **无 JSON 也能跑**：调用 `GetBuildingInfoByAreaNo` + `GetRoomInfo` API 动态拉取楼栋房间
+- 📦 部署简化为一个文件：`etong_monitor.py`
+- ⚡ JSON 文件变为可选加速缓存
 
 ### v8.1
 
