@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v7.0
+山东建筑大学 电费监控服务 v7.2
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
+- 支持楼栋名+房间名配置，自动查询 rooms.json
 
 GitHub: https://github.com/jichie/sjzu-etong-monitor
 """
@@ -46,15 +47,19 @@ SSO_USERNAME = ""              # 你的学号，如 "STUDENT_ID_PLACEHOLDER"
 SSO_PASSWORD = ""              # SSO 密码
 
 # --- 房间配置 ---
-# 电费查询的房间信息
-# 查看 rooms.json 文件可以找到你的房间号
+# 只需要填写楼栋名称和房间名称，程序会自动从 rooms.json 查找对应编号
+# 例如：BUILDING_NAME = "梅二-照明"  ROOM_NAME = "413"
+BUILDING_NAME = ""             # 楼栋名称（与 rooms.json 中 building_name 一致）
+ROOM_NAME = ""                 # 房间名称（与 rooms.json 中 name 一致）
+
+# 以下参数一般不需要修改，BuildingNo 和 RoomNo 由程序自动填充
 ROOM_CONFIG = {
     "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
     "AreaNo": "1",             # 校区编号（"1" = 济南校区）
-    "BuildingNo": "2",         # 楼栋编号（如 "2" = 梅二，查看 rooms.json 中的 building_no）
+    "BuildingNo": "",          # 楼栋编号（自动从 rooms.json 查找）
     "FloorNo": "0",            # 楼层编号（一般为 "0"）
     "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
-    "RoomNo": "10624",         # 房间号（查看 rooms.json 中对应房间的 no 值）
+    "RoomNo": "",              # 房间号（自动从 rooms.json 查找）
 }
 
 # --- 认证 Token ---
@@ -72,6 +77,11 @@ CHECK_INTERVAL = 3600          # 检查间隔（秒），默认 1 小时
 DAILY_REPORT_HOUR = 19         # 日报发送时间（小时）
 DAILY_REPORT_MINUTE = 10       # 日报发送时间（分钟）
 ALERT_COOLDOWN = 21600         # 低电量告警冷却时间（秒），6 小时内不重复告警
+
+# --- 房间名称映射 ---
+# rooms.json 文件路径，用于将房间号映射为可读名称（如 "梅二-照明 413"）
+# 与脚本放在同一目录下即可，也可指定绝对路径
+ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
 
 # --- 推送配置 ---
 # 至少配置一个推送渠道，否则告警无法发送
@@ -128,6 +138,103 @@ def save_state(state):
         pass
 
 
+# --- 房间名称映射缓存 ---
+_room_name_cache = None        # room_no → "梅二-照明 413"
+_building_no_cache = None      # building_name → building_no ("梅二-照明" → "2")
+_room_no_cache = None          # (building_name, room_name) → room_no
+
+
+def load_rooms_data():
+    """从 rooms.json 加载并构建所有映射（带缓存）"""
+    global _room_name_cache, _building_no_cache, _room_no_cache
+    if _room_name_cache is not None:
+        return
+
+    if not os.path.exists(ROOMS_JSON_PATH):
+        log(f"⚠️  rooms.json 未找到: {ROOMS_JSON_PATH}")
+        _room_name_cache = {}
+        _building_no_cache = {}
+        _room_no_cache = {}
+        return
+
+    try:
+        with open(ROOMS_JSON_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        name_map = {}
+        bld_map = {}
+        rn_map = {}
+
+        for building in data.get("buildings", []):
+            bld_name = building.get("building_name", "")
+            bld_no = building.get("building_no", "")
+            if bld_name and bld_no:
+                bld_map[bld_name] = bld_no
+
+            for room in building.get("rooms", []):
+                room_no = room.get("no", "")
+                room_name = room.get("name", "")
+                if room_no:
+                    name_map[room_no] = f"{bld_name} {room_name}"
+                if bld_name and room_name and room_no:
+                    rn_map[(bld_name, room_name)] = room_no
+
+        _room_name_cache = name_map
+        _building_no_cache = bld_map
+        _room_no_cache = rn_map
+        log(f"✅ 已加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+    except Exception as e:
+        log(f"⚠️  加载 rooms.json 失败: {e}")
+        _room_name_cache = {}
+        _building_no_cache = {}
+        _room_no_cache = {}
+
+
+def resolve_room_config():
+    """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo"""
+    load_rooms_data()
+
+    if BUILDING_NAME and ROOM_NAME:
+        # 查找楼栋编号
+        bld_no = _building_no_cache.get(BUILDING_NAME, "")
+        if not bld_no:
+            log(f"❌ 在 rooms.json 中未找到楼栋: {BUILDING_NAME}")
+            log("   请检查 BUILDING_NAME 是否与 rooms.json 中完全一致")
+            sys.exit(1)
+
+        # 查找房间编号
+        room_no = _room_no_cache.get((BUILDING_NAME, ROOM_NAME), "")
+        if not room_no:
+            log(f"❌ 在 rooms.json 中未找到房间: {BUILDING_NAME} {ROOM_NAME}")
+            log("   请检查 ROOM_NAME 是否与 rooms.json 中完全一致")
+            sys.exit(1)
+
+        ROOM_CONFIG["BuildingNo"] = bld_no
+        ROOM_CONFIG["RoomNo"] = room_no
+        log(f"🏠 房间: {BUILDING_NAME} {ROOM_NAME} (building_no={bld_no}, room_no={room_no})")
+    elif ROOM_CONFIG.get("BuildingNo") and ROOM_CONFIG.get("RoomNo"):
+        # 兼容旧方式：手动填写了 BuildingNo 和 RoomNo
+        load_rooms_data()
+        log(f"🏠 房间: {get_room_display()}")
+    else:
+        log("❌ 请配置 BUILDING_NAME + ROOM_NAME，或手动填写 ROOM_CONFIG 中的 BuildingNo 和 RoomNo")
+        sys.exit(1)
+
+
+def get_room_display():
+    """获取当前配置房间的可读名称，如 '梅二-照明 413'"""
+    room_no = ROOM_CONFIG.get("RoomNo", "")
+    if room_no:
+        load_rooms_data()
+        readable = _room_name_cache.get(room_no, "")
+        if readable:
+            return readable
+    # 回退：显示 BUILDING_NAME + ROOM_NAME
+    if BUILDING_NAME and ROOM_NAME:
+        return f"{BUILDING_NAME} {ROOM_NAME}"
+    return room_no or "未知房间"
+
+
 def rsa_encrypt(text, public_key_pem):
     pem = public_key_pem.strip()
     pem = pem.replace("-----BEGIN RSA Public Key-----", "-----BEGIN PUBLIC KEY-----")
@@ -163,7 +270,8 @@ def load_cookies():
 
 
 def sso_login():
-    """SSO 登录获取 CTTICKET"""
+    """SSO 登录获取 CTTICKET 和 etToken"""
+    global JWT_TOKEN
     if not SSO_USERNAME or not SSO_PASSWORD:
         log("⚠️  未配置 SSO 账号密码")
         return None
@@ -213,8 +321,19 @@ def sso_login():
             return None
         log("✅ SSO 登录成功")
 
-        session.get("https://etong.sdjzu.edu.cn/easytong_webapp/index.html", timeout=15)
+        # 访问 etong 首页，获取 CTTICKET 和 etToken
+        resp = session.get("https://etong.sdjzu.edu.cn/easytong_webapp/index.html", timeout=15)
         cookies = session.cookies.get_dict()
+
+        # 从页面中提取 etToken
+        import re
+        match = re.search(r"setCookie\('etToken',\s*'([^']+)'", resp.text)
+        if match:
+            JWT_TOKEN = match.group(1)
+            log("✅ 已获取 etToken")
+        else:
+            log("⚠️  未能从页面提取 etToken")
+
         if any("CTTICKET" in k.upper() for k in cookies):
             save_cookies(cookies)
             return cookies
@@ -352,10 +471,11 @@ def check_and_notify():
         last_alert = state.get("last_alert_time", 0)
         if time.time() - last_alert > ALERT_COOLDOWN:
             log(f"🚨 电量不足 {LOW_BALANCE_THRESHOLD} 度，发送告警！")
+            room_display = get_room_display()
             send_notification(
                 "🚨 电费余额严重不足！",
                 f"━━━━━━━━━━━━━━\n"
-                f"🏠 房间: {ROOM_CONFIG['RoomNo']}\n"
+                f"🏠 房间: {room_display}\n"
                 f"🔋 剩余: {balance} 度\n"
                 f"⏰ 时间: {now.strftime('%m-%d %H:%M')}\n"
                 f"━━━━━━━━━━━━━━\n"
@@ -384,10 +504,11 @@ def check_and_notify():
         else:
             status = "🔴 不足"
 
+        room_display = get_room_display()
         send_notification(
             "📊 每日电量报告",
             f"━━━━━━━━━━━━━━\n"
-            f"🏠 房间: {ROOM_CONFIG['RoomNo']}\n"
+            f"🏠 房间: {room_display}\n"
             f"🔋 剩余: {balance} 度\n"
             f"📶 状态: {status}\n"
             f"📅 日期: {today_str}\n"
@@ -400,9 +521,10 @@ def check_and_notify():
 
 def daemon_mode():
     """守护进程模式：持续监控"""
+    resolve_room_config()
     log("=" * 50)
     log("⚡ 电费监控服务启动")
-    log(f"📋 房间: {ROOM_CONFIG['RoomNo']}")
+    log(f"📋 房间: {get_room_display()}")
     log(f"⏰ 检查间隔: {CHECK_INTERVAL}秒")
     log(f"📊 日报时间: 每天 {DAILY_REPORT_HOUR}:{DAILY_REPORT_MINUTE:02d}")
     log(f"🚨 告警阈值: {LOW_BALANCE_THRESHOLD} 度")
@@ -443,6 +565,7 @@ def daemon_mode():
 
 def once_mode():
     """单次查询模式 - 始终推送结果"""
+    resolve_room_config()
     log("=" * 50)
     log("⚡ 单次查询模式（强制推送）")
 
@@ -461,10 +584,11 @@ def once_mode():
         else:
             status = "🔴 不足"
 
+        room_display = get_room_display()
         send_notification(
             "⚡ 电费查询结果",
             f"━━━━━━━━━━━━━━\n"
-            f"🏠 房间: {ROOM_CONFIG['RoomNo']}\n"
+            f"🏠 房间: {room_display}\n"
             f"🔋 剩余: {balance} 度\n"
             f"📶 状态: {status}\n"
             f"⏰ 时间: {now}\n"
