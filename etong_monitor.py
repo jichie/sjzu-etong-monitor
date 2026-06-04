@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v7.3
+山东建筑大学 电费监控服务 v8.0
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
 - 支持楼栋名+房间名配置，自动查询 rooms.json
-- 支持济南校区 + 烟台校区，自动识别
+- 支持济南+烟台双校区，自动识别
+- 🔑 动态签名：无需抓包，自动计算 Sign
 
 GitHub: https://github.com/jichie/sjzu-etong-monitor
 """
@@ -50,13 +51,9 @@ SSO_PASSWORD = ""              # SSO 密码
 BUILDING_NAME = ""             # 楼栋名称，如 "梅二-照明" 或 "1号楼"
 ROOM_NAME = ""                 # 房间名称，如 "413" 或 "101"
 
-# --- 签名参数（必须抓包获取！）---
-# Time 和 Sign 与房间绑定，更换房间需重新抓包
-# 抓包：浏览器 F12 → Network → 搜索 GetPayAccInfoNew → Payload → 复制 Time 和 Sign
-JINAN_FIXED_TIME = "20260326085915"    # 济南校区 Time（替换为你自己房间的）
-JINAN_FIXED_SIGN = "9466192480bb36aee07b22ee0bff8398"  # 济南校区 Sign（替换为你自己房间的）
-YANTAI_FIXED_TIME = "20260604201012"   # 烟台校区 Time（替换为你自己房间的）
-YANTAI_FIXED_SIGN = "48602f9988d01f8616153f979b9b9e45"  # 烟台校区 Sign（替换为你自己房间的）
+# --- MD5 签名密钥 ---
+# 程序自动计算 Sign，无需抓包
+MD5_KEY = "ok15we1@oid8x5afd@"
 
 # --- 认证 Token ---
 # SSO 登录后自动获取，留空即可
@@ -80,10 +77,6 @@ ALERT_COOLDOWN = 21600         # 告警冷却时间（秒），默认 6 小时
 ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
 
 # ====================== 以下一般无需修改 ======================
-
-# 运行时签名（程序根据校区自动选择）
-FIXED_TIME = JINAN_FIXED_TIME
-FIXED_SIGN = JINAN_FIXED_SIGN
 
 # 房间查询参数（BuildingNo 和 RoomNo 由程序自动填充）
 ROOM_CONFIG = {
@@ -207,7 +200,6 @@ def load_rooms_data():
 
 def resolve_room_config():
     """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo，并自动设置校区参数"""
-    global FIXED_TIME, FIXED_SIGN
     load_rooms_data()
 
     # 自动设置校区参数
@@ -216,15 +208,11 @@ def resolve_room_config():
         ROOM_CONFIG["AccNum"] = "1"
         ROOM_CONFIG["AreaNo"] = "0"
         ROOM_CONFIG["ItemNum"] = "6"
-        FIXED_TIME = YANTAI_FIXED_TIME
-        FIXED_SIGN = YANTAI_FIXED_SIGN
     else:
         # 济南校区（默认）
         ROOM_CONFIG["AccNum"] = "0"
         ROOM_CONFIG["AreaNo"] = "1"
         ROOM_CONFIG["ItemNum"] = "2"
-        FIXED_TIME = JINAN_FIXED_TIME
-        FIXED_SIGN = JINAN_FIXED_SIGN
 
     if BUILDING_NAME and ROOM_NAME:
         # 查找楼栋编号
@@ -380,10 +368,15 @@ def query_balance(cookies_dict=None):
     """查询电费余额"""
     url = "https://etong.sdjzu.edu.cn/easytong_app/GetPayAccInfoNew"
 
+    # 动态计算签名
+    ts = time.strftime("%Y%m%d%H%M%S")
+    sign_str = f"{ROOM_CONFIG['AccNum']}|{ROOM_CONFIG['AreaNo']}|{ROOM_CONFIG['BuildingNo']}|{ROOM_CONFIG['FloorNo']}|{ROOM_CONFIG['ItemNum']}|{ROOM_CONFIG['RoomNo']}|{ts}|{MD5_KEY}"
+    sign = hashlib.md5(sign_str.encode()).hexdigest()
+
     post_data = {
         **ROOM_CONFIG,
-        "Time": FIXED_TIME,
-        "Sign": FIXED_SIGN,
+        "Time": ts,
+        "Sign": sign,
         "ContentType": "application/json",
     }
 
