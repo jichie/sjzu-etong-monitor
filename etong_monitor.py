@@ -94,6 +94,7 @@ ROOM_CONFIG = {
 
 COOKIE_FILE = "/tmp/etong_cookies.json"
 STATE_FILE = "/tmp/etong_state.json"
+ROOMS_CACHE_FILE = "/tmp/etong_rooms_cache.json"
 LOG_FILE = "/var/log/etong.log"
 
 running = True
@@ -218,6 +219,18 @@ def fetch_rooms_via_api():
         _room_no_cache = rn_map
         _campus_cache = {"loaded": True}
         log(f"✅ API 拉取完成: {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+
+        # 缓存到本地，下次启动秒加载
+        try:
+            cache = {
+                "name_map": name_map,
+                "bld_map": {"|".join(k): list(v) for k, v in bld_map.items()},
+                "rn_map": {"|".join(k): list(v) for k, v in rn_map.items()},
+            }
+            with open(ROOMS_CACHE_FILE, 'w') as f:
+                json.dump(cache, f)
+        except:
+            pass
         return True
     return False
 
@@ -272,7 +285,25 @@ def load_rooms_data():
         log(f"✅ 共加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
         return
 
-    # 本地文件不存在，尝试 API 拉取
+    # 本地文件不存在，尝试加载 API 缓存
+    try:
+        if os.path.exists(ROOMS_CACHE_FILE):
+            with open(ROOMS_CACHE_FILE, 'r') as f:
+                cache = json.load(f)
+            name_map = cache.get("name_map", {})
+            bld_map = {tuple(k.split("|")): tuple(v) for k, v in cache.get("bld_map", {}).items()}
+            rn_map = {tuple(k.split("|")): tuple(v) for k, v in cache.get("rn_map", {}).items()}
+            if rn_map:
+                _room_name_cache = name_map
+                _building_no_cache = bld_map
+                _room_no_cache = rn_map
+                _campus_cache = {"loaded": True}
+                log(f"📦 已加载 API 缓存: {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+                return
+    except:
+        pass
+
+    # 最后尝试 API 拉取
     if not fetch_rooms_via_api():
         log("❌ 无法获取房间数据，请确保 rooms.json 存在或 SSO 已配置")
         _room_name_cache = {}
