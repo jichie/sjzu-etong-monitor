@@ -232,6 +232,19 @@ A: 正常现象，脚本会自动重新登录。
 
 - 首个正式版本：SSO 登录 / 低电量告警 / 每日报告 / 多渠道推送 / systemd 自启
 
+## 🛠️ 维护工具
+
+仓库中的 `scrape_rooms.py` 用于重新爬取全校房间号，当学校更新楼栋/房间或修改加密算法时使用：
+
+```bash
+pip3 install requests pycryptodome
+python3 scrape_rooms.py          # 爬取济南+烟台
+python3 scrape_rooms.py 济南     # 只爬济南
+python3 scrape_rooms.py 烟台     # 只爬烟台
+```
+
+输出 `rooms.json` 和 `烟台校区_rooms.json`，替换仓库中的旧文件即可。如果签名算法变更，修改脚本中的 `MD5_KEY` 和 `sign_building`/`sign_room` 函数。
+
 ## 📜 许可证
 
 MIT License
