@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v8.0
+山东建筑大学 电费监控服务 v8.1
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
-- 支持楼栋名+房间名配置，自动查询 rooms.json
-- 支持济南+烟台双校区，自动识别
+- 双校区自动识别：同时加载 rooms.json + 烟台校区_rooms.json
 - 🔑 动态签名：无需抓包，自动计算 Sign
 
 GitHub: https://github.com/jichie/sjzu-etong-monitor
@@ -73,8 +72,9 @@ DAILY_REPORT_MINUTE = 10       # 日报推送时间（分钟）
 ALERT_COOLDOWN = 21600         # 告警冷却时间（秒），默认 6 小时
 
 # --- 房间数据文件 ---
-# 济南校区：无需修改；烟台校区：将 烟台校区_rooms.json 重命名为 rooms.json
-ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
+# 下载时把两个文件都放在脚本同目录，程序自动搜索
+JINAN_ROOMS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
+YANTAI_ROOMS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "烟台校区_rooms.json")
 
 # ====================== 以下一般无需修改 ======================
 
@@ -143,101 +143,88 @@ _campus_cache = None           # {"campus": "烟台校区", "area_no": "0"} 或 
 
 
 def load_rooms_data():
-    """从 rooms.json 加载并构建所有映射（带缓存，自动检测校区）"""
+    """从 rooms.json 和 烟台校区_rooms.json 加载所有房间映射（带缓存）"""
     global _room_name_cache, _building_no_cache, _room_no_cache, _campus_cache
     if _room_name_cache is not None:
         return
 
-    if not os.path.exists(ROOMS_JSON_PATH):
-        log(f"⚠️  rooms.json 未找到: {ROOMS_JSON_PATH}")
+    name_map = {}
+    bld_map = {}
+    rn_map = {}
+
+    # 加载两个校区的房间数据
+    campus_files = [
+        (JINAN_ROOMS_PATH, "济南校区", "1"),
+        (YANTAI_ROOMS_PATH, "烟台校区", "0"),
+    ]
+
+    loaded = 0
+    for filepath, campus_name, area_no in campus_files:
+        if not os.path.exists(filepath):
+            continue
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            for building in data.get("buildings", []):
+                bld_name = building.get("building_name", "")
+                bld_no = building.get("building_no", "")
+                if bld_name and bld_no:
+                    # 用 (campus, bld_name) 作为 key 避免重名
+                    bld_map[(campus_name, bld_name)] = (bld_no, area_no)
+
+                for room in building.get("rooms", []):
+                    room_no = room.get("no", "")
+                    room_name = room.get("name", "")
+                    if room_no:
+                        name_map[room_no] = f"{bld_name} {room_name}"
+                    if bld_name and room_name and room_no:
+                        rn_map[(bld_name, room_name)] = (room_no, bld_no, area_no, campus_name)
+
+            loaded += 1
+            log(f"📂 已加载 {campus_name} 房间数据")
+        except Exception as e:
+            log(f"⚠️  加载 {filepath} 失败: {e}")
+
+    if loaded == 0:
+        log(f"⚠️  未找到任何房间数据文件")
         _room_name_cache = {}
         _building_no_cache = {}
         _room_no_cache = {}
         _campus_cache = {}
         return
 
-    try:
-        with open(ROOMS_JSON_PATH, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        # 自动检测校区：area_no="0" 为烟台校区，否则为济南校区
-        area_no = data.get("area_no", "1")
-        campus = data.get("campus", "")
-        if area_no == "0" or "烟台" in campus:
-            _campus_cache = {"campus": "烟台校区", "area_no": "0"}
-        else:
-            _campus_cache = {"campus": "济南校区", "area_no": "1"}
-
-        name_map = {}
-        bld_map = {}
-        rn_map = {}
-
-        for building in data.get("buildings", []):
-            bld_name = building.get("building_name", "")
-            bld_no = building.get("building_no", "")
-            if bld_name and bld_no:
-                bld_map[bld_name] = bld_no
-
-            for room in building.get("rooms", []):
-                room_no = room.get("no", "")
-                room_name = room.get("name", "")
-                if room_no:
-                    name_map[room_no] = f"{bld_name} {room_name}"
-                if bld_name and room_name and room_no:
-                    rn_map[(bld_name, room_name)] = room_no
-
-        _room_name_cache = name_map
-        _building_no_cache = bld_map
-        _room_no_cache = rn_map
-        log(f"✅ 已加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋 ({_campus_cache['campus']})")
-    except Exception as e:
-        log(f"⚠️  加载 rooms.json 失败: {e}")
-        _room_name_cache = {}
-        _building_no_cache = {}
-        _room_no_cache = {}
-        _campus_cache = {}
+    _room_name_cache = name_map
+    _building_no_cache = bld_map
+    _room_no_cache = rn_map
+    _campus_cache = {"loaded": True}
+    log(f"✅ 共加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
 
 
 def resolve_room_config():
-    """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo，并自动设置校区参数"""
+    """根据 BUILDING_NAME + ROOM_NAME 自动查找，支持双校区"""
     load_rooms_data()
 
-    # 自动设置校区参数
-    if _campus_cache and _campus_cache.get("area_no") == "0":
-        # 烟台校区
-        ROOM_CONFIG["AccNum"] = "0"
-        ROOM_CONFIG["AreaNo"] = "0"
-        ROOM_CONFIG["ItemNum"] = "6"
-    else:
-        # 济南校区（默认）
-        ROOM_CONFIG["AccNum"] = "0"
-        ROOM_CONFIG["AreaNo"] = "1"
-        ROOM_CONFIG["ItemNum"] = "2"
-
     if BUILDING_NAME and ROOM_NAME:
-        # 查找楼栋编号
-        bld_no = _building_no_cache.get(BUILDING_NAME, "")
-        if not bld_no:
-            log(f"❌ 在 rooms.json 中未找到楼栋: {BUILDING_NAME}")
-            log("   请检查 BUILDING_NAME 是否与 rooms.json 中完全一致")
+        # 在两个校区中搜索
+        result = _room_no_cache.get((BUILDING_NAME, ROOM_NAME))
+        if not result:
+            log(f"❌ 在两个校区的数据中均未找到: {BUILDING_NAME} {ROOM_NAME}")
             sys.exit(1)
 
-        # 查找房间编号
-        room_no = _room_no_cache.get((BUILDING_NAME, ROOM_NAME), "")
-        if not room_no:
-            log(f"❌ 在 rooms.json 中未找到房间: {BUILDING_NAME} {ROOM_NAME}")
-            log("   请检查 ROOM_NAME 是否与 rooms.json 中完全一致")
-            sys.exit(1)
-
+        room_no, bld_no, area_no, campus_name = result
         ROOM_CONFIG["BuildingNo"] = bld_no
         ROOM_CONFIG["RoomNo"] = room_no
-        log(f"🏠 房间: {BUILDING_NAME} {ROOM_NAME} (building_no={bld_no}, room_no={room_no})")
+        ROOM_CONFIG["AreaNo"] = area_no
+        ROOM_CONFIG["AccNum"] = "0"
+        ROOM_CONFIG["ItemNum"] = "6" if area_no == "0" else "2"
+        log(f"🏠 房间: {BUILDING_NAME} {ROOM_NAME} ({campus_name}, room_no={room_no})")
+
     elif ROOM_CONFIG.get("BuildingNo") and ROOM_CONFIG.get("RoomNo"):
-        # 兼容旧方式：手动填写了 BuildingNo 和 RoomNo
         load_rooms_data()
         log(f"🏠 房间: {get_room_display()}")
     else:
-        log("❌ 请配置 BUILDING_NAME + ROOM_NAME，或手动填写 ROOM_CONFIG 中的 BuildingNo 和 RoomNo")
+        log("❌ 请配置 BUILDING_NAME + ROOM_NAME，或手动填写 BuildingNo 和 RoomNo")
         sys.exit(1)
 
 
