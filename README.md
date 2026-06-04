@@ -38,20 +38,19 @@ wget -O /opt/etong/烟台校区_rooms.json https://raw.githubusercontent.com/jic
 vi /opt/etong/etong_monitor.py
 ```
 
-只需修改 4 项：
-
 ```python
 # --- 登录账号 ---
 SSO_USERNAME = "你的学号"
 SSO_PASSWORD = "你的密码"
 
 # --- 房间配置 ---
-BUILDING_NAME = "梅二-照明"               # 楼栋名称
-ROOM_NAME = "413"                        # 房间名称
+BUILDING_NAME = "梅二-照明"               # 楼栋名称，如 "梅二-照明" 或 "1号楼"
+ROOM_NAME = "413"                        # 房间名称，如 "413" 或 "101"
 
 # --- 推送配置 ---
 WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个
 ```
+
 
 ### 4. 测试运行
 
@@ -119,11 +118,17 @@ systemctl disable etong-monitor
 |--------|------|--------|
 | `SSO_USERNAME` | SSO 学号 | 必填 |
 | `SSO_PASSWORD` | SSO 密码 | 必填 |
-| `BUILDING_NAME` | 楼栋名称（如"梅二-照明"） | 必填 |
-| `ROOM_NAME` | 房间名称（如"413"） | 必填 |
+| `BUILDING_NAME` | 楼栋名称（如"梅二-照明" 或 "1号楼"） | 必填 |
+| `ROOM_NAME` | 房间名称（如"413" 或 "101"） | 必填 |
 | `WECOM_WEBHOOK` | 企业微信 Webhook | 选填 |
 | `BARK_KEY` | Bark 推送地址 | 选填 |
 | `PUSHPLUS_TOKEN` | PushPlus Token | 选填 |
+| `LOW_BALANCE_THRESHOLD` | 低电量告警阈值（度） | `10.0` |
+| `CHECK_INTERVAL` | 检查间隔（秒） | `3600` |
+| `DAILY_REPORT_HOUR` | 日报推送时间（时） | `19` |
+| `DAILY_REPORT_MINUTE` | 日报推送时间（分） | `10` |
+| `MD5_KEY` | 签名密钥 | 无需修改 |
+| `JWT_TOKEN` | 认证 Token | 自动获取 |
 
 ## 📱 推送渠道配置
 
@@ -182,7 +187,7 @@ ROOM_NAME = "413"
 A: 检查 SSO 账号密码是否正确，网络是否正常。
 
 **Q: 如何修改房间？**
-A: 在 `rooms.json` 中找到新房间的编号，替换脚本中的 `ROOM_CONFIG`。
+A: 修改脚本中的 `BUILDING_NAME` 和 `ROOM_NAME`，程序自动查找对应编号。
 
 **Q: 推送收不到？**
 A: 检查推送渠道配置是否正确，至少配置一个渠道。
