@@ -37,19 +37,27 @@ wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjz
 vi /opt/etong/etong_monitor.py
 ```
 
-修改以下内容：
+修改以下 6 项：
 
 ```python
 # --- 登录账号 ---
-SSO_USERNAME = "你的学号"                # SSO 统一认证学号
-SSO_PASSWORD = "你的密码"                # SSO 密码
+SSO_USERNAME = "你的学号"
+SSO_PASSWORD = "你的密码"
 
 # --- 房间配置 ---
-BUILDING_NAME = "梅二-照明"               # 楼栋名称（与 rooms.json 中一致）
-ROOM_NAME = "413"                        # 房间名称（与 rooms.json 中一致）
+BUILDING_NAME = "梅二-照明"               # 楼栋名称
+ROOM_NAME = "413"                        # 房间名称
+
+# --- 签名参数（必须抓包！）---
+# 抓包方法见下方「获取签名」章节
+JINAN_FIXED_TIME = "你的Time"            # 济南校区 Time
+JINAN_FIXED_SIGN = "你的Sign"            # 济南校区 Sign
+# 烟台校区用户改为填写下面两项
+# YANTAI_FIXED_TIME = "你的Time"
+# YANTAI_FIXED_SIGN = "你的Sign"
 
 # --- 推送配置 ---
-WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个推送渠道
+WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个
 ```
 
 ### 4. 测试运行
@@ -120,14 +128,13 @@ systemctl disable etong-monitor
 | `SSO_PASSWORD` | SSO 密码 | 必填 |
 | `BUILDING_NAME` | 楼栋名称（如"梅二-照明"） | 必填 |
 | `ROOM_NAME` | 房间名称（如"413"） | 必填 |
-| `LOW_BALANCE_THRESHOLD` | 低电量阈值（度） | `10.0` |
-| `CHECK_INTERVAL` | 检查间隔（秒） | `3600` |
-| `DAILY_REPORT_HOUR` | 日报时间（小时） | `19` |
-| `DAILY_REPORT_MINUTE` | 日报时间（分钟） | `10` |
-| `ALERT_COOLDOWN` | 告警冷却时间（秒） | `21600` |
-| `WECOM_WEBHOOK` | 企业微信 Webhook | 可选 |
-| `BARK_KEY` | Bark 推送地址 | 可选 |
-| `PUSHPLUS_TOKEN` | PushPlus Token | 可选 |
+| `JINAN_FIXED_TIME` | 济南校区签名 Time（抓包获取） | 必填 |
+| `JINAN_FIXED_SIGN` | 济南校区签名 Sign（抓包获取） | 必填 |
+| `YANTAI_FIXED_TIME` | 烟台校区签名 Time（抓包获取） | 烟台必填 |
+| `YANTAI_FIXED_SIGN` | 烟台校区签名 Sign（抓包获取） | 烟台必填 |
+| `WECOM_WEBHOOK` | 企业微信 Webhook | 选填 |
+| `BARK_KEY` | Bark 推送地址 | 选填 |
+| `PUSHPLUS_TOKEN` | PushPlus Token | 选填 |
 
 ## 📱 推送渠道配置
 
