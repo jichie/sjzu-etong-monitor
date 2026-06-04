@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v8.1
+山东建筑大学 电费监控服务 v8.2
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
+- 📡 无本地数据时自动通过 API 拉取楼栋和房间列表
 - 双校区自动识别：同时加载 rooms.json + 烟台校区_rooms.json
 - 🔑 动态签名：无需抓包，自动计算 Sign
 
@@ -142,8 +143,87 @@ _room_no_cache = None          # (building_name, room_name) → room_no
 _campus_cache = None           # {"campus": "烟台校区", "area_no": "0"} 或 None=济南
 
 
+def fetch_rooms_via_api():
+    """通过 API 动态拉取楼栋和房间列表，填充缓存"""
+    global _room_name_cache, _building_no_cache, _room_no_cache, _campus_cache
+
+    log("🌐 未找到本地数据，尝试通过 API 拉取...")
+    if not SSO_USERNAME or not SSO_PASSWORD:
+        log("⚠️  未配置 SSO 账号，无法拉取")
+        return False
+
+    # SSO 登录
+    cookies = sso_login()
+    if not cookies:
+        return False
+
+    name_map = {}
+    bld_map = {}
+    rn_map = {}
+
+    # 尝试两个校区
+    campuses = [
+        ("1", "2", "济南校区"),   # AreaNo=1, ItemNum=2
+        ("0", "6", "烟台校区"),   # AreaNo=0, ItemNum=6
+    ]
+
+    url = "https://etong.sdjzu.edu.cn/easytong_app"
+    headers = {"Authorization": JWT_TOKEN, "h5req": "Y", "Content-Type": "application/x-www-form-urlencoded"}
+    cookies_dict = {"md5": "1", "etToken": JWT_TOKEN}
+    cookies_dict.update(cookies)
+
+    for area_no, item_num, campus_name in campuses:
+        try:
+            # 1. 获取楼栋列表
+            ts = time.strftime("%Y%m%d%H%M%S")
+            sign = hashlib.md5(f"{area_no}|{item_num}|{ts}|{MD5_KEY}".encode()).hexdigest()
+            data = {"AreaNo": area_no, "ItemNum": item_num, "Time": ts, "Sign": sign, "ContentType": "application/json"}
+            resp = requests.post(f"{url}/GetBuildingInfoByAreaNo", data=data, headers=headers, cookies=cookies_dict, timeout=15, verify=False)
+            if resp.status_code != 200:
+                continue
+            buildings = resp.json().get("dormList", [])
+
+            for bld in buildings:
+                bld_name = bld.get("name", "")
+                bld_no = bld.get("no", "")
+                if bld_name and bld_no:
+                    bld_map[(campus_name, bld_name)] = (bld_no, area_no)
+
+                # 2. 获取该楼栋的房间列表
+                if bld_no:
+                    ts2 = time.strftime("%Y%m%d%H%M%S")
+                    sign2 = hashlib.md5(f"{area_no}|{bld_no}|{item_num}|{ts2}|{MD5_KEY}".encode()).hexdigest()
+                    data2 = {"AreaNo": area_no, "BuildingNo": bld_no, "ItemNum": item_num, "Time": ts2, "Sign": sign2, "ContentType": "application/json"}
+                    resp2 = requests.post(f"{url}/GetRoomInfo", data=data2, headers=headers, cookies=cookies_dict, timeout=15, verify=False)
+                    if resp2.status_code != 200:
+                        continue
+                    rooms = resp2.json().get("dormList", [])
+
+                    for room in rooms:
+                        room_name = room.get("name", "")
+                        room_no = room.get("no", "")
+                        if room_no:
+                            name_map[room_no] = f"{bld_name} {room_name}"
+                        if bld_name and room_name and room_no:
+                            rn_map[(bld_name, room_name)] = (room_no, bld_no, area_no, campus_name)
+
+            log(f"📡 已拉取 {campus_name} 数据")
+
+        except Exception as e:
+            log(f"⚠️  {campus_name} API 拉取失败: {e}")
+
+    if rn_map:
+        _room_name_cache = name_map
+        _building_no_cache = bld_map
+        _room_no_cache = rn_map
+        _campus_cache = {"loaded": True}
+        log(f"✅ API 拉取完成: {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+        return True
+    return False
+
+
 def load_rooms_data():
-    """从 rooms.json 和 烟台校区_rooms.json 加载所有房间映射（带缓存）"""
+    """加载房间数据：本地 JSON 优先，无则通过 API 拉取"""
     global _room_name_cache, _building_no_cache, _room_no_cache, _campus_cache
     if _room_name_cache is not None:
         return
@@ -152,7 +232,6 @@ def load_rooms_data():
     bld_map = {}
     rn_map = {}
 
-    # 加载两个校区的房间数据
     campus_files = [
         (JINAN_ROOMS_PATH, "济南校区", "1"),
         (YANTAI_ROOMS_PATH, "烟台校区", "0"),
@@ -170,7 +249,6 @@ def load_rooms_data():
                 bld_name = building.get("building_name", "")
                 bld_no = building.get("building_no", "")
                 if bld_name and bld_no:
-                    # 用 (campus, bld_name) 作为 key 避免重名
                     bld_map[(campus_name, bld_name)] = (bld_no, area_no)
 
                 for room in building.get("rooms", []):
@@ -186,19 +264,22 @@ def load_rooms_data():
         except Exception as e:
             log(f"⚠️  加载 {filepath} 失败: {e}")
 
-    if loaded == 0:
-        log(f"⚠️  未找到任何房间数据文件")
+    if loaded > 0:
+        _room_name_cache = name_map
+        _building_no_cache = bld_map
+        _room_no_cache = rn_map
+        _campus_cache = {"loaded": True}
+        log(f"✅ 共加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+        return
+
+    # 本地文件不存在，尝试 API 拉取
+    if not fetch_rooms_via_api():
+        log("❌ 无法获取房间数据，请确保 rooms.json 存在或 SSO 已配置")
         _room_name_cache = {}
         _building_no_cache = {}
         _room_no_cache = {}
         _campus_cache = {}
-        return
-
-    _room_name_cache = name_map
-    _building_no_cache = bld_map
-    _room_no_cache = rn_map
-    _campus_cache = {"loaded": True}
-    log(f"✅ 共加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+        sys.exit(1)
 
 
 def resolve_room_config():
