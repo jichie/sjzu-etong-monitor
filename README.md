@@ -27,6 +27,12 @@ mkdir -p /opt/etong
 
 # 下载脚本
 wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/etong_monitor.py
+
+# 济南校区用户：下载房间数据
+wget -O /opt/etong/rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/rooms.json
+
+# 烟台校区用户：下载烟台校区房间数据（替换上面的 rooms.json）
+wget -O /opt/etong/rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/烟台校区_rooms.json
 ```
 
 ### 3. 配置
