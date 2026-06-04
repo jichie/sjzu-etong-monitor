@@ -80,7 +80,7 @@ ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "room
 
 # 房间查询参数（BuildingNo 和 RoomNo 由程序自动填充）
 ROOM_CONFIG = {
-    "AccNum": "0",             # "0"=济南校区 "1"=烟台校区（自动设置）
+    "AccNum": "0",             # 固定为 "0"
     "AreaNo": "1",             # "1"=济南校区 "0"=烟台校区（自动设置）
     "BuildingNo": "",          # 自动从 rooms.json 查找
     "FloorNo": "0",            # 楼层编号
@@ -205,7 +205,7 @@ def resolve_room_config():
     # 自动设置校区参数
     if _campus_cache and _campus_cache.get("area_no") == "0":
         # 烟台校区
-        ROOM_CONFIG["AccNum"] = "1"
+        ROOM_CONFIG["AccNum"] = "0"
         ROOM_CONFIG["AreaNo"] = "0"
         ROOM_CONFIG["ItemNum"] = "6"
     else:
@@ -368,9 +368,9 @@ def query_balance(cookies_dict=None):
     """查询电费余额"""
     url = "https://etong.sdjzu.edu.cn/easytong_app/GetPayAccInfoNew"
 
-    # 动态计算签名
+    # 动态计算签名（AccNum 在签名中固定为 "0"）
     ts = time.strftime("%Y%m%d%H%M%S")
-    sign_str = f"{ROOM_CONFIG['AccNum']}|{ROOM_CONFIG['AreaNo']}|{ROOM_CONFIG['BuildingNo']}|{ROOM_CONFIG['FloorNo']}|{ROOM_CONFIG['ItemNum']}|{ROOM_CONFIG['RoomNo']}|{ts}|{MD5_KEY}"
+    sign_str = f"0|{ROOM_CONFIG['AreaNo']}|{ROOM_CONFIG['BuildingNo']}|{ROOM_CONFIG['FloorNo']}|{ROOM_CONFIG['ItemNum']}|{ROOM_CONFIG['RoomNo']}|{ts}|{MD5_KEY}"
     sign = hashlib.md5(sign_str.encode()).hexdigest()
 
     post_data = {
