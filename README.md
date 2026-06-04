@@ -45,14 +45,8 @@ SSO_USERNAME = "你的学号"                # SSO 统一认证学号
 SSO_PASSWORD = "你的密码"                # SSO 密码
 
 # --- 房间配置 ---
-ROOM_CONFIG = {
-    "AccNum": "0",                       # 账户类型（"0" = 济南校区，"1" = 烟台校区）
-    "AreaNo": "1",                       # 校区编号（"1" = 济南校区）
-    "BuildingNo": "2",                   # 楼栋编号（查看 rooms.json 中的 building_no）
-    "FloorNo": "0",                      # 楼层编号（一般为 "0"）
-    "ItemNum": "2",                      # 缴费项目（"2" = 济南校区电控缴费）
-    "RoomNo": "10624",                   # 房间号（查看 rooms.json 中对应房间的 no 值）
-}
+BUILDING_NAME = "梅二-照明"               # 楼栋名称（与 rooms.json 中一致）
+ROOM_NAME = "413"                        # 房间名称（与 rooms.json 中一致）
 
 # --- 推送配置 ---
 WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个推送渠道
@@ -124,7 +118,8 @@ systemctl disable etong-monitor
 |--------|------|--------|
 | `SSO_USERNAME` | SSO 学号 | 必填 |
 | `SSO_PASSWORD` | SSO 密码 | 必填 |
-| `ROOM_CONFIG` | 房间配置 | 查看 rooms.json |
+| `BUILDING_NAME` | 楼栋名称（如"梅二-照明"） | 必填 |
+| `ROOM_NAME` | 房间名称（如"413"） | 必填 |
 | `LOW_BALANCE_THRESHOLD` | 低电量阈值（度） | `10.0` |
 | `CHECK_INTERVAL` | 检查间隔（秒） | `3600` |
 | `DAILY_REPORT_HOUR` | 日报时间（小时） | `19` |
@@ -156,24 +151,18 @@ systemctl disable etong-monitor
 
 ## 🔧 如何配置房间
 
-项目已提供 `rooms.json` 文件，包含全校所有房间号数据。
-
-1. 打开 `rooms.json`，找到你的楼栋
-2. 找到你的房间号对应的 `no` 值
-3. 修改脚本中的 `ROOM_CONFIG`
+现在只需填写楼栋名称和房间名称，程序会自动从 `rooms.json` 查找对应编号。
 
 示例（梅二 413 宿舍）：
 
 ```python
-ROOM_CONFIG = {
-    "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
-    "AreaNo": "1",             # 校区编号（"1" = 济南校区）
-    "BuildingNo": "2",         # 楼栋编号（如 "2" = 梅二，查看 rooms.json 中的 building_no）
-    "FloorNo": "0",            # 楼层编号（一般为 "0"）
-    "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
-    "RoomNo": "10624",         # 房间号（查看 rooms.json）
-}
+BUILDING_NAME = "梅二-照明"     # 楼栋名称（与 rooms.json 中 building_name 一致）
+ROOM_NAME = "413"              # 房间名称（与 rooms.json 中 name 一致）
 ```
+
+配置后运行 `python3 etong_monitor.py --once`，程序会自动查找并显示对应的房间信息。
+
+> 如果你之前使用的是手动填写 `BuildingNo` 和 `RoomNo` 的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，并在 `ROOM_CONFIG` 中填写编号即可。
 
 
 
