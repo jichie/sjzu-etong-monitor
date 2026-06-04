@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v7.2
+山东建筑大学 电费监控服务 v7.3
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
 - 支持楼栋名+房间名配置，自动查询 rooms.json
+- 支持济南校区 + 烟台校区，自动识别
 
 GitHub: https://github.com/jichie/sjzu-etong-monitor
 """
@@ -79,8 +80,9 @@ DAILY_REPORT_MINUTE = 10       # 日报发送时间（分钟）
 ALERT_COOLDOWN = 21600         # 低电量告警冷却时间（秒），6 小时内不重复告警
 
 # --- 房间名称映射 ---
-# rooms.json 文件路径，用于将房间号映射为可读名称（如 "梅二-照明 413"）
-# 与脚本放在同一目录下即可，也可指定绝对路径
+# rooms.json 文件路径，用于将房间号映射为可读名称
+# 济南校区：使用项目自带的 rooms.json
+# 烟台校区：将烟台校区房间号.json 重命名为 rooms.json 放在脚本同目录
 ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
 
 # --- 推送配置 ---
@@ -142,11 +144,12 @@ def save_state(state):
 _room_name_cache = None        # room_no → "梅二-照明 413"
 _building_no_cache = None      # building_name → building_no ("梅二-照明" → "2")
 _room_no_cache = None          # (building_name, room_name) → room_no
+_campus_cache = None           # {"campus": "烟台校区", "area_no": "0"} 或 None=济南
 
 
 def load_rooms_data():
-    """从 rooms.json 加载并构建所有映射（带缓存）"""
-    global _room_name_cache, _building_no_cache, _room_no_cache
+    """从 rooms.json 加载并构建所有映射（带缓存，自动检测校区）"""
+    global _room_name_cache, _building_no_cache, _room_no_cache, _campus_cache
     if _room_name_cache is not None:
         return
 
@@ -155,11 +158,20 @@ def load_rooms_data():
         _room_name_cache = {}
         _building_no_cache = {}
         _room_no_cache = {}
+        _campus_cache = {}
         return
 
     try:
         with open(ROOMS_JSON_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
+        # 自动检测校区：area_no="0" 为烟台校区，否则为济南校区
+        area_no = data.get("area_no", "1")
+        campus = data.get("campus", "")
+        if area_no == "0" or "烟台" in campus:
+            _campus_cache = {"campus": "烟台校区", "area_no": "0"}
+        else:
+            _campus_cache = {"campus": "济南校区", "area_no": "1"}
 
         name_map = {}
         bld_map = {}
@@ -182,17 +194,30 @@ def load_rooms_data():
         _room_name_cache = name_map
         _building_no_cache = bld_map
         _room_no_cache = rn_map
-        log(f"✅ 已加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋")
+        log(f"✅ 已加载 {len(name_map)} 个房间, {len(bld_map)} 个楼栋 ({_campus_cache['campus']})")
     except Exception as e:
         log(f"⚠️  加载 rooms.json 失败: {e}")
         _room_name_cache = {}
         _building_no_cache = {}
         _room_no_cache = {}
+        _campus_cache = {}
 
 
 def resolve_room_config():
-    """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo"""
+    """根据 BUILDING_NAME + ROOM_NAME 自动查找 BuildingNo 和 RoomNo，并自动设置校区参数"""
     load_rooms_data()
+
+    # 自动设置校区参数
+    if _campus_cache and _campus_cache.get("area_no") == "0":
+        # 烟台校区
+        ROOM_CONFIG["AccNum"] = "1"
+        ROOM_CONFIG["AreaNo"] = "0"
+        ROOM_CONFIG["ItemNum"] = "6"
+    else:
+        # 济南校区（默认）
+        ROOM_CONFIG["AccNum"] = "0"
+        ROOM_CONFIG["AreaNo"] = "1"
+        ROOM_CONFIG["ItemNum"] = "2"
 
     if BUILDING_NAME and ROOM_NAME:
         # 查找楼栋编号
