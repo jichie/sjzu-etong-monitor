@@ -151,7 +151,9 @@ systemctl disable etong-monitor
 
 ## 🔧 如何配置房间
 
-现在只需填写楼栋名称和房间名称，程序会自动从 `rooms.json` 查找对应编号。
+只需填写楼栋名称和房间名称，程序会自动从 `rooms.json` 查找对应编号，并自动识别校区。
+
+### 济南校区
 
 示例（梅二 413 宿舍）：
 
@@ -160,9 +162,19 @@ BUILDING_NAME = "梅二-照明"     # 楼栋名称（与 rooms.json 中 building
 ROOM_NAME = "413"              # 房间名称（与 rooms.json 中 name 一致）
 ```
 
-配置后运行 `python3 etong_monitor.py --once`，程序会自动查找并显示对应的房间信息。
+### 烟台校区
 
-> 如果你之前使用的是手动填写 `BuildingNo` 和 `RoomNo` 的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，并在 `ROOM_CONFIG` 中填写编号即可。
+1. 将仓库中的 `烟台校区_rooms.json` 重命名为 `rooms.json`（替换原文件）
+2. 填写楼栋名和房间名：
+
+```python
+BUILDING_NAME = "1号楼"        # 楼栋名称（与 rooms.json 中 building_name 一致）
+ROOM_NAME = "101"             # 房间名称（与 rooms.json 中 name 一致）
+```
+
+程序会根据 `rooms.json` 中的 `area_no` 自动识别校区，设置正确的查询参数。
+
+> 如果之前使用手动填写编号的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，在 `ROOM_CONFIG` 中填写编号即可。
 
 
 
@@ -193,6 +205,12 @@ A: 检查推送渠道配置是否正确，至少配置一个渠道。
 A: 正常现象，脚本会自动重新登录。
 
 ## 📝 更新日志
+
+### v7.3 (2026-06-04)
+
+- 🏫 **烟台校区支持**：自动识别校区（济南/烟台），设置正确的查询参数
+- 📦 新增 `烟台校区_rooms.json`，烟台用户只需重命名为 `rooms.json` 即可使用
+- 🔍 校区自动检测：根据 `rooms.json` 中的 `area_no` 自动切换 `AccNum`/`AreaNo`/`ItemNum`
 
 ### v7.2 (2026-06-04)
 
