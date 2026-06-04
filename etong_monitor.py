@@ -42,68 +42,61 @@ except ImportError:
 # ====================== 配置区域 ======================
 
 # --- 登录账号 ---
-# SSO 统一认证账号（学号）和密码
-# 首次使用需要填写，脚本会自动登录获取 token
-SSO_USERNAME = ""              # 你的学号，如 "202207101230"
+SSO_USERNAME = ""              # 你的学号
 SSO_PASSWORD = ""              # SSO 密码
 
 # --- 房间配置 ---
-# 只需要填写楼栋名称和房间名称，程序会自动从 rooms.json 查找对应编号
-# 例如：BUILDING_NAME = "梅二-照明"  ROOM_NAME = "413"
-BUILDING_NAME = ""             # 楼栋名称（与 rooms.json 中 building_name 一致）
-ROOM_NAME = ""                 # 房间名称（与 rooms.json 中 name 一致）
-
-# 以下参数一般不需要修改，BuildingNo 和 RoomNo 由程序自动填充
-ROOM_CONFIG = {
-    "AccNum": "0",             # 账户类型（"0" = 济南校区，"1" = 烟台校区）
-    "AreaNo": "1",             # 校区编号（"1" = 济南校区）
-    "BuildingNo": "",          # 楼栋编号（自动从 rooms.json 查找）
-    "FloorNo": "0",            # 楼层编号（一般为 "0"）
-    "ItemNum": "2",            # 缴费项目（"2" = 济南校区电控缴费）
-    "RoomNo": "",              # 房间号（自动从 rooms.json 查找）
-}
+# 填写楼栋名称和房间名称，程序自动从 rooms.json 查找编号
+BUILDING_NAME = ""             # 楼栋名称，如 "梅二-照明" 或 "1号楼"
+ROOM_NAME = ""                 # 房间名称，如 "413" 或 "101"
 
 # --- 签名参数（必须抓包获取！）---
 # Time 和 Sign 与房间绑定，更换房间需重新抓包
-# 抓包方法：浏览器 F12 → Network → 搜索 GetPayAccInfoNew → Payload → 复制 Time 和 Sign
-# 济南校区（填写你自己房间的抓包值）
-JINAN_FIXED_TIME = "20260326085915"
-JINAN_FIXED_SIGN = "9466192480bb36aee07b22ee0bff8398"
-# 烟台校区（填写你自己房间的抓包值）
-YANTAI_FIXED_TIME = "20260604201012"
-YANTAI_FIXED_SIGN = "48602f9988d01f8616153f979b9b9e45"
+# 抓包：浏览器 F12 → Network → 搜索 GetPayAccInfoNew → Payload → 复制 Time 和 Sign
+JINAN_FIXED_TIME = "20260326085915"    # 济南校区 Time（替换为你自己房间的）
+JINAN_FIXED_SIGN = "9466192480bb36aee07b22ee0bff8398"  # 济南校区 Sign（替换为你自己房间的）
+YANTAI_FIXED_TIME = "20260604201012"   # 烟台校区 Time（替换为你自己房间的）
+YANTAI_FIXED_SIGN = "48602f9988d01f8616153f979b9b9e45"  # 烟台校区 Sign（替换为你自己房间的）
 
-# 运行时签名（程序自动选择，无需修改）
+# --- 认证 Token ---
+# SSO 登录后自动获取，留空即可
+JWT_TOKEN = ""
+
+# --- 推送配置 ---
+# 至少配置一个推送渠道
+WECOM_WEBHOOK = ""             # 企业微信机器人 Webhook
+BARK_KEY = ""                  # Bark 推送 Key（iOS）
+PUSHPLUS_TOKEN = ""            # PushPlus Token
+
+# --- 监控设置（可选）---
+LOW_BALANCE_THRESHOLD = 10.0   # 低电量告警阈值（度）
+CHECK_INTERVAL = 3600          # 检查间隔（秒），默认 1 小时
+DAILY_REPORT_HOUR = 19         # 日报推送时间（小时）
+DAILY_REPORT_MINUTE = 10       # 日报推送时间（分钟）
+ALERT_COOLDOWN = 21600         # 告警冷却时间（秒），默认 6 小时
+
+# --- 房间数据文件 ---
+# 济南校区：无需修改；烟台校区：将 烟台校区_rooms.json 重命名为 rooms.json
+ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
+
+# ====================== 以下一般无需修改 ======================
+
+# 运行时签名（程序根据校区自动选择）
 FIXED_TIME = JINAN_FIXED_TIME
 FIXED_SIGN = JINAN_FIXED_SIGN
 
-# --- 认证 Token ---
-# JWT Token，首次登录后脚本会自动获取，一般留空即可
-JWT_TOKEN = ""
-
-# --- 监控设置 ---
-LOW_BALANCE_THRESHOLD = 10.0   # 低电量告警阈值（度）
-CHECK_INTERVAL = 3600          # 检查间隔（秒），默认 1 小时
-DAILY_REPORT_HOUR = 19         # 日报发送时间（小时）
-DAILY_REPORT_MINUTE = 10       # 日报发送时间（分钟）
-ALERT_COOLDOWN = 21600         # 低电量告警冷却时间（秒），6 小时内不重复告警
-
-# --- 房间名称映射 ---
-# rooms.json 文件路径，用于将房间号映射为可读名称
-# 济南校区：使用项目自带的 rooms.json
-# 烟台校区：将烟台校区房间号.json 重命名为 rooms.json 放在脚本同目录
-ROOMS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rooms.json")
-
-# --- 推送配置 ---
-# 至少配置一个推送渠道，否则告警无法发送
-# 企业微信机器人 Webhook
-WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=52ce281a-3dea-4927-885a-2c8747a548b9"
-# Bark 推送地址（iOS）
-BARK_KEY = ""
-# PushPlus Token
-PUSHPLUS_TOKEN = ""
+# 房间查询参数（BuildingNo 和 RoomNo 由程序自动填充）
+ROOM_CONFIG = {
+    "AccNum": "0",             # "0"=济南校区 "1"=烟台校区（自动设置）
+    "AreaNo": "1",             # "1"=济南校区 "0"=烟台校区（自动设置）
+    "BuildingNo": "",          # 自动从 rooms.json 查找
+    "FloorNo": "0",            # 楼层编号
+    "ItemNum": "2",            # "2"=济南校区电控 "6"=烟台校区电控（自动设置）
+    "RoomNo": "",              # 自动从 rooms.json 查找
+}
 
 # ====================== 配置结束 ======================
+
 
 COOKIE_FILE = "/tmp/etong_cookies.json"
 STATE_FILE = "/tmp/etong_state.json"
