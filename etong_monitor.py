@@ -56,8 +56,12 @@ ROOM_NAME = ""                 # 房间名称，如 "413" 或 "101"
 MD5_KEY = "ok15we1@oid8x5afd@"
 
 # --- 认证 Token ---
-# SSO 登录后自动获取，留空即可
-JWT_TOKEN = ""
+# JWT Token：从浏览器拿到一次，永久可用
+JWT_TOKEN = "JWT_TOKEN_PLACEHOLDER"
+
+# CTTICKET：从浏览器获取，有效期数月
+# 获取方法：浏览器 Console → document.cookie.match(/CTTICKET=([^;]+)/)[1]
+CTTICKET = ""
 
 # --- 推送配置 ---
 # 至少配置一个推送渠道
@@ -490,6 +494,9 @@ def query_balance(cookies_dict=None):
     }
 
     cookies = {"md5": "1", "etToken": JWT_TOKEN}
+    if CTTICKET:
+        cookies["CTTICKET"] = CTTICKET
+        cookies["APPCTTICKET"] = CTTICKET
     if cookies_dict:
         cookies.update(cookies_dict)
 
@@ -514,8 +521,15 @@ def query_balance(cookies_dict=None):
 
 
 def get_balance():
-    """完整的查询流程（含自动登录）"""
-    # 先用缓存
+    """完整的查询流程：先用 CTTICKET，失败再尝试 SSO 登录"""
+    # 如果有 CTTICKET，直接查询（无需 SSO）
+    if CTTICKET:
+        balance = query_balance()
+        if balance is not None:
+            return balance
+        log("⚠️  CTTICKET 可能已过期")
+
+    # 尝试缓存
     cached = load_cookies()
     if cached:
         balance = query_balance(cached)
@@ -523,10 +537,15 @@ def get_balance():
             return balance
 
     # 缓存失效，重新登录
-    log("CTTICKET 失效，重新登录...")
-    new_cookies = sso_login()
-    if new_cookies:
-        return query_balance(new_cookies)
+    log("SSO 登录中...")
+    try:
+        new_cookies = sso_login()
+        if new_cookies:
+            return query_balance(new_cookies)
+    except Exception as e:
+        log(f"❌ SSO 登录失败: {e}")
+
+    log("❌ 所有认证方式均失败，请检查 CTTICKET 或更新脚本")
     return None
 
 
