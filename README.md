@@ -7,11 +7,12 @@
 - ⚡ **自动查询** - 定时查询电费余额
 - 🚨 **低电量告警** - 余额低于阈值立即推送通知
 - 📊 **每日报告** - 每天 19:10 推送当日电量日报
-- 🔄 **自动登录** - SSO 认证过期后自动重新登录
-- 🛡️ **告警冷却** - 避免重复告警打扰
-- 📱 **多渠道推送** - 支持企业微信、Bark、PushPlus
+- 🔑 **无需抓包** - 签名算法已逆向，自动计算 Sign
+- 🏫 **双校区** - 自动识别济南/烟台校区
+- 📦 **零配置启动** - 无本地数据时自动通过 API 拉取房间列表
+- 📱 **多渠道推送** - 企业微信、Bark、PushPlus
 
-## 📦 安装方法
+## 📦 快速开始
 
 ### 1. 安装依赖
 
@@ -23,141 +24,121 @@ pip3 install requests pycryptodome
 
 ```bash
 mkdir -p /opt/etong
-
-# 下载脚本（一个文件即可，房间数据自动拉取）
 wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/etong_monitor.py
-
-# 可选：下载房间数据缓存，加速启动
-wget -O /opt/etong/rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/rooms.json
-wget -O /opt/etong/烟台校区_rooms.json https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/烟台校区_rooms.json
 ```
 
-### 3. 配置
+### 3. 获取 CTTICKET（关键步骤！）
 
-编辑脚本配置区域：
+> 学校 SSO 系统现在需要二次验证，脚本无法自动登录。
+> **需要从浏览器手动获取一次 CTTICKET，有效期数月。**
+
+<details>
+<summary><b>📖 点击展开详细图文教程</b></summary>
+
+#### 第一步：用浏览器打开并登录
+
+1. 用 Chrome/Edge 打开 https://etong.sdjzu.edu.cn/easytong_webapp/
+2. 正常扫码或账号密码登录
+3. 进入电费查询页面，确认能查到电量
+
+#### 第二步：打开开发者工具
+
+按 **F12**（或右键 → 检查）打开开发者工具：
+
+![F12](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/f12.png)
+
+#### 第三步：获取 CTTICKET
+
+点击顶部 **Console（控制台）** 标签，粘贴以下代码后回车：
+
+```javascript
+document.cookie.match(/CTTICKET=([^;]+)/)[1]
+```
+
+![Console](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/console.png)
+
+会输出类似这样一串：
+
+```
+web_96a5ac43425cd38e41117c3b5e6e4450d51b7601_webreq
+```
+
+**复制这串值**，它就是 CTTICKET。
+
+</details>
+
+### 4. 配置
 
 ```bash
 vi /opt/etong/etong_monitor.py
 ```
 
+修改以下内容：
+
 ```python
-# --- 登录账号 ---
-SSO_USERNAME = "你的学号"
+# --- 登录账号（SSO 备用，建议也填上）---
+SSO_USERNAME = "STUDENT_ID_PLACEHOLDER"          # 你的学号
 SSO_PASSWORD = "你的密码"
 
 # --- 房间配置 ---
-BUILDING_NAME = "梅二-照明"               # 楼栋名称，如 "梅二-照明" 或 "1号楼"
-ROOM_NAME = "413"                        # 房间名称，如 "413" 或 "101"
+BUILDING_NAME = "梅二-照明"            # 楼栋名称
+ROOM_NAME = "413"                      # 房间名称
 
-# --- 推送配置 ---
-WECOM_WEBHOOK = "你的企业微信 Webhook"   # 至少配置一个
+# --- CTTICKET（从浏览器获取）---
+CTTICKET = "web_96a5ac43425cd38e41117c3b5e6e4450d51b7601_webreq"
+
+# --- 推送配置（至少配一个）---
+WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
 ```
 
-
-### 4. 测试运行
+### 5. 测试
 
 ```bash
-# 单次查询（测试配置是否正确）
 python3 /opt/etong/etong_monitor.py --once
 ```
 
-### 5. 设置开机自启（可选）
+如果 CTTICKET 有效，输出应该是这样，**不需要 SSO 登录**：
+
+```
+📂 已加载 济南校区 房间数据
+📂 已加载 烟台校区 房间数据
+✅ 共加载 13033 个房间, 41 个楼栋
+🏠 房间: 梅二-照明 413 (济南校区, room_no=10624)
+⚡ 当前电量: 92.52 度
+```
+
+### 6. 后台运行（可选）
 
 ```bash
 # 复制服务文件
 cp etong-monitor.service /etc/systemd/system/
-
-# 重载配置
 systemctl daemon-reload
-
-# 启动服务
 systemctl start etong-monitor
-
-# 设置开机自启
 systemctl enable etong-monitor
 ```
 
-## 🚀 使用方法
+## ⚙️ 完整配置说明
 
-### 单次查询
-
-```bash
-python3 /opt/etong/etong_monitor.py --once
-```
-
-### 后台运行
-
-```bash
-# 直接运行
-python3 /opt/etong/etong_monitor.py
-
-# 或使用 systemd
-systemctl start etong-monitor
-```
-
-### 管理命令
-
-```bash
-# 查看实时日志
-journalctl -u etong-monitor -f
-
-# 查看服务状态
-systemctl status etong-monitor
-
-# 重启服务（修改配置后）
-systemctl restart etong-monitor
-
-# 停止服务
-systemctl stop etong-monitor
-
-# 禁用开机自启
-systemctl disable etong-monitor
-```
-
-## ⚙️ 配置说明
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `SSO_USERNAME` | SSO 学号 | 必填 |
-| `SSO_PASSWORD` | SSO 密码 | 必填 |
-| `BUILDING_NAME` | 楼栋名称（如"梅二-照明" 或 "1号楼"） | 必填 |
-| `ROOM_NAME` | 房间名称（如"413" 或 "101"） | 必填 |
-| `WECOM_WEBHOOK` | 企业微信 Webhook | 选填 |
+| 配置项 | 说明 | 必填 |
+|--------|------|:----:|
+| `SSO_USERNAME` | 学号 | 推荐 |
+| `SSO_PASSWORD` | SSO 密码 | 推荐 |
+| `BUILDING_NAME` | 楼栋名称，如 "梅二-照明" / "1号楼" | **是** |
+| `ROOM_NAME` | 房间名称，如 "413" / "101" | **是** |
+| `CTTICKET` | 从浏览器获取的认证 Cookie | **是** |
+| `WECOM_WEBHOOK` | 企业微信机器人 Webhook | 选填 |
 | `BARK_KEY` | Bark 推送地址 | 选填 |
 | `PUSHPLUS_TOKEN` | PushPlus Token | 选填 |
-| `LOW_BALANCE_THRESHOLD` | 低电量告警阈值（度） | `10.0` |
-| `CHECK_INTERVAL` | 检查间隔（秒） | `3600` |
-| `DAILY_REPORT_HOUR` | 日报推送时间（时） | `19` |
-| `DAILY_REPORT_MINUTE` | 日报推送时间（分） | `10` |
-| `MD5_KEY` | 签名密钥 | 无需修改 |
-| `JWT_TOKEN` | 认证 Token | 自动获取 |
 
-## 📱 推送渠道配置
+> SSO 账号已不是必需（因为二次验证问题），但建议填上作为备用。
+> 当 CTTICKET 过期时，脚本会尝试通过 SSO 重新登录，可能触发短信验证。
 
-### 企业微信机器人
+## 🔧 房间配置
 
-1. 在企业微信群聊中添加机器人
-2. 复制 Webhook 地址
-3. 填入 `WECOM_WEBHOOK`
-
-### Bark（iOS）
-
-1. 在 App Store 下载 Bark
-2. 打开 App 获取推送地址
-3. 填入 `BARK_KEY`
-
-### PushPlus
-
-1. 访问 [pushplus.plus](https://www.pushplus.plus)
-2. 微信登录获取 Token
-3. 填入 `PUSHPLUS_TOKEN`
-
-## 🔧 如何配置房间
-
-只需填写楼栋名称和房间名称，程序自动在两个校区的数据中搜索（有本地 JSON 秒加载，无则通过 API 拉取）。
+程序自动在两个校区的数据中搜索房间，无需手动区分济南/烟台。
 
 ```python
-BUILDING_NAME = "梅二-照明"     # 济南校区示例
+BUILDING_NAME = "梅二-照明"     # 济南校区
 ROOM_NAME = "413"
 
 # 或烟台校区：
@@ -165,76 +146,62 @@ ROOM_NAME = "413"
 # ROOM_NAME = "101"
 ```
 
-> 如果之前使用手动填写编号的方式，仍然兼容。只需留空 `BUILDING_NAME` 和 `ROOM_NAME`，在 `ROOM_CONFIG` 中填写编号即可。
+有本地 JSON 文件秒加载，没有则自动通过 API 拉取。
 
+## 🔄 更新 CTTICKET
 
+CTTICKET 通常有效 **2～6 个月**，过期后重复获取流程：
 
-## 📝 运行示例
-
-```
-[2026-03-26 18:30:01] ⚡ 查询电量...
-[2026-03-26 18:30:02] ⚡ 当前电量: 80.5 度
-[2026-03-26 18:30:02] 💤 下次检查: 19:10:00 (40分钟后)
-[2026-03-26 19:10:01] ⚡ 查询电量...
-[2026-03-26 19:10:02] ⚡ 当前电量: 80.5 度
-[2026-03-26 19:10:02] 📊 发送每日电量报告
-[2026-03-26 19:10:02] 📱 企业微信推送成功
-```
+1. 用浏览器打开 etong 并登录
+2. 按 F12 → Console
+3. 执行 `document.cookie.match(/CTTICKET=([^;]+)/)[1]`
+4. 复制输出值，替换脚本中的 `CTTICKET = "..."`
 
 ## 🐛 常见问题
 
-**Q: 查询失败怎么办？**
-A: 检查 SSO 账号密码是否正确，网络是否正常。
+**Q: 提示"签名不匹配"？**
+A: 检查脚本中的 `MD5_KEY` 是否为 `ok15we1@oid8x5afd@`，学校可能更新了密钥。
+
+**Q: 查不到电费，提示"用户不存在"？**
+A: 账号没权限查该校区，济南学号查不了烟台电费。
+
+**Q: CTTICKET 过期了，SSO 登录要短信验证？**
+A: 重新从浏览器获取 CTTICKET 即可，不需要手机验证。
 
 **Q: 如何修改房间？**
-A: 修改脚本中的 `BUILDING_NAME` 和 `ROOM_NAME`，程序自动查找对应编号。
+A: 修改 `BUILDING_NAME` 和 `ROOM_NAME`，程序自动查找对应编号。
 
 **Q: 推送收不到？**
-A: 检查推送渠道配置是否正确，至少配置一个渠道。
-
-**Q: CTTICKET 频繁过期？**
-A: 正常现象，脚本会自动重新登录。
+A: 检查推送渠道配置是否正确。企业微信机器人需要先在群聊中添加。
 
 ## 📝 更新日志
 
+### v8.3
+
+- 🔑 **CTTICKET 认证**：支持直接使用浏览器 Cookie 查询，绕过 SSO 二次验证
+- 📖 新增详细 CTTICKET 获取教程
+
 ### v8.2
 
-- 📡 **无 JSON 也能跑**：调用 `GetBuildingInfoByAreaNo` + `GetRoomInfo` API 动态拉取楼栋房间
-- 📦 部署简化为一个文件：`etong_monitor.py`
+- 📡 **无 JSON 也能跑**：调用 `GetBuildingInfoByAreaNo` + `GetRoomInfo` API 动态拉取
 - ⚡ JSON 文件变为可选加速缓存
 
 ### v8.1
 
-- 📂 **双文件自动识别**：同时加载 `rooms.json` + `烟台校区_rooms.json`，无需重命名
-- 🏠 填楼栋名+房间名即可，自动在双校区数据中搜索匹配
-- 📦 部署只需下载 3 个文件，无需手动区分校区
+- 📂 **双文件自动识别**：同时加载 `rooms.json` + `烟台校区_rooms.json`
 
 ### v8.0
 
-- 🔑 **动态签名**：逆向签名算法 `MD5(AccNum|AreaNo|BuildingNo|FloorNo|ItemNum|RoomNo|Time|MD5_KEY)`，无需抓包
-- 🎉 配置从 6 项减少到 4 项：学号、密码、楼栋名、房间名
-- 🗑️ 移除 `FIXED_TIME`/`FIXED_SIGN`
-- 🐛 修复烟台校区 `AccNum` 固定为 `0`
-
-### v7.3
-
-- 🏫 烟台校区支持：自动识别校区，设置正确的查询参数
-- 📦 新增 `烟台校区_rooms.json`
-
-### v7.2
-
-- 🏠 配置简化：填 `BUILDING_NAME` + `ROOM_NAME`，自动查 rooms.json
-- 📱 推送显示可读名称（如"梅二-照明 413"）
-- 🔑 自动获取 etToken：修复 SSO 登录后查询失败
-- 🔄 向后兼容手动填写编号的旧方式
+- 🔑 **动态签名**：逆向签名算法，无需抓包 Time/Sign
+- 🎉 配置从 6 项减到 4 项
 
 ### v7.0
 
-- 首个正式版本：SSO 登录 / 低电量告警 / 每日报告 / 多渠道推送 / systemd 自启
+- 首个正式版本
 
 ## 🛠️ 维护工具
 
-仓库中的 `scrape_rooms.py` 用于重新爬取全校房间号，当学校更新楼栋/房间或修改加密算法时使用：
+仓库中的 `scrape_rooms.py` 用于重新爬取全校房间号：
 
 ```bash
 pip3 install requests pycryptodome
@@ -242,8 +209,6 @@ python3 scrape_rooms.py          # 爬取济南+烟台
 python3 scrape_rooms.py 济南     # 只爬济南
 python3 scrape_rooms.py 烟台     # 只爬烟台
 ```
-
-输出 `rooms.json` 和 `烟台校区_rooms.json`，替换仓库中的旧文件即可。如果签名算法变更，修改脚本中的 `MD5_KEY` 和 `sign_building`/`sign_room` 函数。
 
 ## 📜 许可证
 

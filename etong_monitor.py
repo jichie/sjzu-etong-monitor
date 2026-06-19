@@ -59,8 +59,7 @@ MD5_KEY = "ok15we1@oid8x5afd@"
 # JWT Token：从浏览器拿到一次，永久可用
 JWT_TOKEN = "JWT_TOKEN_PLACEHOLDER"
 
-# CTTICKET：从浏览器获取，有效期数月
-# 获取方法：浏览器 Console → document.cookie.match(/CTTICKET=([^;]+)/)[1]
+# CTTICKET：从浏览器获取（教程见 README），有效期数月，留空则走 SSO 登录
 CTTICKET = ""
 
 # --- 推送配置 ---
