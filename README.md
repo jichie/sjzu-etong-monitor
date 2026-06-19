@@ -45,7 +45,7 @@ wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjz
 https://etong.sdjzu.edu.cn/easytong_webapp/#/payIndex?itemNum=2&itemType=2
 ```
 
-如果提示登录，输入 **学号** 和 **电费系统支付密码**（不是 SSO 密码）。
+如果提示登录，输入学号和密码登录。如果第二次提示登录，密码是电费系统支付密码（不是 SSO 密码）。
 
 #### 第二步：查询一次电费
 
