@@ -152,13 +152,18 @@ def fetch_rooms_via_api():
     global _room_name_cache, _building_no_cache, _room_no_cache, _campus_cache
 
     log("🌐 未找到本地数据，尝试通过 API 拉取...")
-    if not SSO_USERNAME or not SSO_PASSWORD:
-        log("⚠️  未配置 SSO 账号，无法拉取")
-        return False
-
-    # SSO 登录
-    cookies = sso_login()
-    if not cookies:
+    # 优先用 CTTICKET，不用 SSO 登录
+    if CTTICKET:
+        log("📡 使用 CTTICKET 直接拉取...")
+        cookies = {}
+    elif SSO_USERNAME and SSO_PASSWORD:
+        log("🔐 SSO 登录中...")
+        cookies = sso_login()
+        if not cookies:
+            log("❌ SSO 登录失败")
+            return False
+    else:
+        log("⚠️  未配置 CTTICKET 或 SSO 账号")
         return False
 
     name_map = {}
