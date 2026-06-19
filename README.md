@@ -35,35 +35,37 @@ wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjz
 <details>
 <summary><b>📖 点击展开详细图文教程</b></summary>
 
-#### 第一步：用浏览器打开并登录
+#### 第一步：打开电费查询页面
 
-1. 用 Chrome/Edge 打开 https://etong.sdjzu.edu.cn/easytong_webapp/
-2. 正常扫码或账号密码登录
-3. 进入电费查询页面，确认能查到电量
+用 Chrome/Edge 打开以下链接：
 
-#### 第二步：打开开发者工具
-
-按 **F12**（或右键 → 检查）打开开发者工具：
-
-![F12](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/f12.png)
-
-#### 第三步：获取 CTTICKET
-
-点击顶部 **Console（控制台）** 标签，粘贴以下代码后回车：
-
-```javascript
-document.cookie.match(/CTTICKET=([^;]+)/)[1]
+```
+https://etong.sdjzu.edu.cn/easytong_webapp/#/payIndex?itemNum=2&itemType=2
 ```
 
-![Console](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/console.png)
+如果提示登录，输入 **学号** 和 **电费系统支付密码**（不是 SSO 密码）。
 
-会输出类似这样一串：
+#### 第二步：查询一次电费
+
+选择你的楼栋和房间，点击查询，确认能正常显示电量。
+
+#### 第三步：抓到 CTTICKET
+
+按 **F12** → 点击 **Network（网络）** 标签 → 在筛选框输入 `GetPayAccInfoNew`：
+
+![Network](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/network.png)
+
+点击那条请求 → 找到 **Request Headers（请求头）** → 找到 `Cookie:` 字段 → 找到 `CTTICKET=...` 这串值，复制下来。
+
+![Cookie](https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/docs/cookie.png)
+
+> 也可以用 Console 方式：点击 Console 标签，粘贴 `document.cookie.match(/CTTICKET=([^;]+)/)[1]` 回车，直接输出 CTTICKET。
+
+CTTICKET 长这样：
 
 ```
 web_96a5ac43425cd38e41117c3b5e6e4450d51b7601_webreq
 ```
-
-**复制这串值**，它就是 CTTICKET。
 
 </details>
 
