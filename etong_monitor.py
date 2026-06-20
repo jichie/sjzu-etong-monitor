@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v9.2
+山东建筑大学 电费监控服务 v9.0
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
@@ -68,9 +68,10 @@ ROOM_NAME = "413"
 MD5_KEY = "ok15we1@oid8x5afd@"
 
 # --- 认证 Token ---
-JWT_TOKEN = "JWT_TOKEN_PLACEHOLDER"
+# JWT Token：从浏览器拿到一次，永久可用（留空则自动获取）
+JWT_TOKEN = ""
 
-# CTTICKET：从浏览器获取，有效期数月，留空则走 SSO 登录
+# CTTICKET：从浏览器获取（教程见 README），有效期数月，留空则走 SSO 自动登录
 CTTICKET = ""
 
 # --- 推送配置 ---
@@ -1303,7 +1304,7 @@ def check_and_notify():
 def daemon_mode():
     resolve_room_config()
     log("=" * 50)
-    log("⚡ 电费监控服务启动 (v9.2)")
+    log("⚡ 电费监控服务启动 (v9.0)")
     log(f"📋 房间: {get_room_display()}")
     log(f"⏰ 检查间隔: {CHECK_INTERVAL}秒")
     log(f"📊 日报时间: 每天 {DAILY_REPORT_HOUR}:{DAILY_REPORT_MINUTE:02d}")
