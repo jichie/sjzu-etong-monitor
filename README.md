@@ -11,16 +11,18 @@
 - 🏫 **双校区** - 自动识别济南/烟台校区
 - 📦 **零配置启动** - 无本地数据时自动通过 API 拉取房间列表
 - 📱 **多渠道推送** - 企业微信、Bark、PushPlus
-
-> ⚠️ **2026年6月19日更新**：学校 SSO 系统升级，启用了二次验证（短信/扫码），脚本已无法通过账号密码自动登录。现在必须**手动抓取一次 CTTICKET**（有效期数月），后续可正常自动运行。
+- 🔐 **自动二次验证** - 首次运行通过手机浏览器完成图片验证码+短信验证码，后续自动免验证
+- 🛡️ **浏览器指纹模拟** - 使用 curl_cffi 模拟 Chrome TLS 指纹，防止 CTTICKET 过期
 
 ## 📦 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-pip3 install requests pycryptodome
+pip3 install requests pycryptodome curl_cffi
 ```
+
+> `curl_cffi` 是可选的，但强烈推荐安装，可以模拟浏览器指纹，避免 CTTICKET 快速过期。
 
 ### 2. 下载脚本
 
@@ -29,49 +31,7 @@ mkdir -p /opt/etong
 wget -O /opt/etong/etong_monitor.py https://raw.githubusercontent.com/jichie/sjzu-etong-monitor/main/etong_monitor.py
 ```
 
-### 3. 获取 CTTICKET（关键步骤！）
-
-> 学校 SSO 系统现在需要二次验证，脚本无法自动登录。
-> **需要从浏览器手动获取一次 CTTICKET，有效期数月。**
-
-<details>
-<summary><b>📖 点击展开详细图文教程</b></summary>
-
-#### 第一步：打开电费查询页面
-
-用 Chrome/Edge 打开以下链接：
-
-```
-https://etong.sdjzu.edu.cn/easytong_webapp/#/payIndex?itemNum=2&itemType=2
-```
-
-如果提示登录，输入学号和密码登录。如果第二次提示登录，密码是电费系统支付密码（不是 SSO 密码）。
-
-#### 第二步：查询一次电费
-
-选择你的楼栋和房间，点击查询，确认能正常显示电量。
-
-#### 第三步：抓到 CTTICKET
-
-按 **F12** → 点击 **Network（网络）** 标签 → 在筛选框输入 `GetPayAccInfoNew`：
-
-![Network](docs/network.jpg)
-
-点击那条请求 → 找到 **Request Headers（请求头）** → 找到 `Cookie:` 字段 → 找到 `CTTICKET=...` 这串值，复制下来。
-
-![Cookie](docs/cookie.jpg)
-
-> 也可以用 Console 方式：点击 Console 标签，粘贴 `document.cookie.match(/CTTICKET=([^;]+)/)[1]` 回车，直接输出 CTTICKET。
-
-CTTICKET 长这样：
-
-```
-web_96a5ac43425cd38e41117c3b5e6e4450d51b7601_webreq
-```
-
-</details>
-
-### 4. 配置
+### 3. 配置
 
 ```bash
 vi /opt/etong/etong_monitor.py
@@ -80,36 +40,45 @@ vi /opt/etong/etong_monitor.py
 修改以下内容：
 
 ```python
-# --- 登录账号（SSO 备用，建议也填上）---
-SSO_USERNAME = "STUDENT_ID_PLACEHOLDER"          # 你的学号
+# --- 登录账号 ---
+SSO_USERNAME = "你的学号"
 SSO_PASSWORD = "你的密码"
 
 # --- 房间配置 ---
 BUILDING_NAME = "梅二-照明"            # 楼栋名称
 ROOM_NAME = "413"                      # 房间名称
 
-# --- CTTICKET（从浏览器获取）---
-CTTICKET = "web_96a5ac43425cd38e41117c3b5e6e4450d51b7601_webreq"
-
 # --- 推送配置（至少配一个）---
 WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
 ```
 
-### 5. 测试
+### 4. 首次运行（需要二次验证）
 
 ```bash
 python3 /opt/etong/etong_monitor.py --once
 ```
 
-如果 CTTICKET 有效，输出应该是这样，**不需要 SSO 登录**：
+首次运行会检测到需要二次验证，脚本会自动：
+1. 获取图片验证码
+2. 启动临时 HTTP 服务（端口 8899）
+3. 推送通知到企业微信，提示你打开验证页面
 
+**在手机上完成验证：**
+
+1. 手机浏览器打开提示中的地址（如 `http://192.168.1.207:8899`）
+2. 输入图片验证码，点击"发送短信验证码"
+3. 收到短信后，输入短信验证码，完成验证
+4. 脚本会自动获取 CTTICKET 并查询电费
+
+> ⚠️ **注意**：如果手机无法访问内网 IP，需要确保服务器和手机在同一网络，或者使用公网 IP。
+
+### 5. 后续运行
+
+```bash
+python3 /opt/etong/etong_monitor.py --once
 ```
-📂 已加载 济南校区 房间数据
-📂 已加载 烟台校区 房间数据
-✅ 共加载 13033 个房间, 41 个楼栋
-🏠 房间: 梅二-照明 413 (济南校区, room_no=10624)
-⚡ 当前电量: 92.52 度
-```
+
+由于使用了固定的设备 ID，SSO 系统会记住你的设备，**后续运行不再需要二次验证**。
 
 ### 6. 后台运行（可选）
 
@@ -125,17 +94,18 @@ systemctl enable etong-monitor
 
 | 配置项 | 说明 | 必填 |
 |--------|------|:----:|
-| `SSO_USERNAME` | 学号 | 推荐 |
-| `SSO_PASSWORD` | SSO 密码 | 推荐 |
+| `SSO_USERNAME` | 学号 | **是** |
+| `SSO_PASSWORD` | SSO 密码 | **是** |
 | `BUILDING_NAME` | 楼栋名称，如 "梅二-照明" / "1号楼" | **是** |
 | `ROOM_NAME` | 房间名称，如 "413" / "101" | **是** |
-| `CTTICKET` | 从浏览器获取的认证 Cookie | **是** |
 | `WECOM_WEBHOOK` | 企业微信机器人 Webhook | 选填 |
 | `BARK_KEY` | Bark 推送地址 | 选填 |
 | `PUSHPLUS_TOKEN` | PushPlus Token | 选填 |
-
-> SSO 账号已不是必需（因为二次验证问题），但建议填上作为备用。
-> 当 CTTICKET 过期时，脚本会尝试通过 SSO 重新登录，可能触发短信验证。
+| `LOW_BALANCE_THRESHOLD` | 低电量告警阈值（度），默认 10 | 选填 |
+| `CHECK_INTERVAL` | 检查间隔（秒），默认 3600 | 选填 |
+| `DAILY_REPORT_HOUR` | 日报推送时间（小时），默认 19 | 选填 |
+| `DAILY_REPORT_MINUTE` | 日报推送时间（分钟），默认 10 | 选填 |
+| `SMS_SERVER_PORT` | 验证码接收服务端口，默认 8899 | 选填 |
 
 ## 🔧 房间配置
 
@@ -152,14 +122,16 @@ ROOM_NAME = "413"
 
 有本地 JSON 文件秒加载，没有则自动通过 API 拉取。
 
-## 🔄 更新 CTTICKET
+## 🔄 CTTICKET 说明
 
-CTTICKET 通常有效 **2～6 个月**，过期后重复获取流程：
-
-1. 用浏览器打开 etong 并登录
-2. 按 F12 → Console
-3. 执行 `document.cookie.match(/CTTICKET=([^;]+)/)[1]`
-4. 复制输出值，替换脚本中的 `CTTICKET = "..."`
+- **首次运行**：脚本会自动完成二次验证并获取 CTTICKET
+- **后续运行**：由于使用了固定的设备 ID，SSO 会记住你的设备，不再需要验证
+- **CTTICKET 有效期**：通常 2-6 个月，过期后脚本会自动重新验证
+- **手动获取**：如果自动验证失败，可以从浏览器手动获取 CTTICKET：
+  1. 用浏览器打开电费查询页面并登录
+  2. 按 F12 → Console
+  3. 执行 `document.cookie.match(/CTTICKET=([^;]+)/)[1]`
+  4. 复制输出值，填入脚本的 `CTTICKET` 配置项
 
 ## 🐛 常见问题
 
@@ -169,8 +141,11 @@ A: 检查脚本中的 `MD5_KEY` 是否为 `ok15we1@oid8x5afd@`，学校可能更
 **Q: 查不到电费，提示"用户不存在"？**
 A: 账号没权限查该校区，济南学号查不了烟台电费。
 
-**Q: CTTICKET 过期了，SSO 登录要短信验证？**
-A: 重新从浏览器获取 CTTICKET 即可，不需要手机验证。
+**Q: 首次运行收不到企业微信通知？**
+A: 检查企业微信 Webhook 配置是否正确，确保服务器能访问外网。
+
+**Q: 手机无法访问验证页面？**
+A: 确保手机和服务器在同一网络，或者修改 `get_local_ip()` 函数返回公网 IP。
 
 **Q: 如何修改房间？**
 A: 修改 `BUILDING_NAME` 和 `ROOM_NAME`，程序自动查找对应编号。
@@ -179,6 +154,14 @@ A: 修改 `BUILDING_NAME` 和 `ROOM_NAME`，程序自动查找对应编号。
 A: 检查推送渠道配置是否正确。企业微信机器人需要先在群聊中添加。
 
 ## 📝 更新日志
+
+### v9.2
+
+- 🔐 **自动二次验证**：首次运行通过手机浏览器完成图片验证码+短信验证码
+- 🛡️ **浏览器指纹模拟**：使用 curl_cffi 模拟 Chrome TLS 指纹
+- 📱 **手机验证码接收**：临时 HTTP 服务，手机浏览器直接输入验证码
+- 🔄 **图片验证码刷新**：AJAX 刷新，不会重新加载整个页面
+- 🎯 **精确接口对接**：根据实际抓包确认 SSO 接口参数
 
 ### v8.3
 
