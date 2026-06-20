@@ -48,6 +48,10 @@ SSO_PASSWORD = "你的密码"
 BUILDING_NAME = "梅二-照明"            # 楼栋名称
 ROOM_NAME = "413"                      # 房间名称
 
+# --- 认证 Token（可选，留空则自动获取）---
+# JWT_TOKEN = ""                       # 从浏览器获取，永久可用
+# CTTICKET = ""                        # 从浏览器获取，有效期数月
+
 # --- 推送配置（至少配一个）---
 WECOM_WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
 ```
