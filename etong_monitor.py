@@ -115,6 +115,7 @@ CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.j
 
 running = True
 _reauthenticated = False
+_verifyphone_data = None
 
 
 def load_config():
@@ -403,6 +404,22 @@ def submit_sms_code(session, phone, sms_code, secondary_code, device, locationur
         result = resp.json()
         log(f"📋 verifyPhone 响应: {json.dumps(result, ensure_ascii=False)[:200]}")
         if result.get("code") == "0x000000" or result.get("success") or result.get("status") == 1:
+            global _verifyphone_data
+            _verifyphone_data = result
+            # 保存 app_token（设备令牌，用于后续免验证登录）
+            _vp_app_token = result.get("data", {}).get("app_token", "")
+            if _vp_app_token:
+                try:
+                    cfg = {}
+                    if os.path.exists(CONFIG_FILE):
+                        with open(CONFIG_FILE, 'r') as f:
+                            cfg = json.load(f)
+                    cfg["app_token"] = _vp_app_token
+                    with open(CONFIG_FILE, 'w') as f:
+                        json.dump(cfg, f, indent=2, ensure_ascii=False)
+                    log(f"💾 app_token 已保存到 {CONFIG_FILE}")
+                except Exception as e:
+                    log(f"⚠️  保存 app_token 失败: {e}")
             log(f"✅ 短信验证通过！")
             return True
         else:
@@ -1183,13 +1200,19 @@ def sso_login():
             # 5.3 验证通过后，跟随 SSO 重定向获取 CTTICKET
             log("🔄 二次验证完成，跟随重定向获取 CTTICKET...")
             
-            # 使用服务器返回的 locatUrl（含 before=1&type=1，用于设为常用设备）
-            # 回退到自行构造时也用 before=1&type=1 而非 before=0&type=0
+            # 优先使用 verifyPhone 返回的 locatUrl（before=2，设备注册完成）
+            # 其次使用 verifyWebUser 返回的 locatUrl（before=1）
+            # 最后自行构造
+            _vp_locat = ""
+            global _verifyphone_data
+            if _verifyphone_data:
+                _vp_locat = _verifyphone_data.get("data", {}).get("locatUrl", "")
+                _verifyphone_data = None  # 用完即清理
             try:
                 sso_locat_url
             except NameError:
                 sso_locat_url = ""
-            redirect_url = sso_locat_url or f"{SSO_BASE}/?action=secondary&code={secondary_code}&before=1&type=1&zh={phone}&locationurl={unquote(locationurl)}"
+            redirect_url = _vp_locat or sso_locat_url or f"{SSO_BASE}/?action=secondary&code={secondary_code}&before=2&type=1&zh={phone}&locationurl={unquote(locationurl)}"
             _before_match = re.search(r'before=(\d+)', redirect_url)
             _type_match = re.search(r'type=(\d+)', redirect_url)
             log(f"🔗 重定向 URL: before={_before_match.group(1) if _before_match else '?'}, type={_type_match.group(1) if _type_match else '?'}")
