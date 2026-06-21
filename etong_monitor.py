@@ -112,6 +112,7 @@ STATE_FILE = "/tmp/etong_state.json"
 ROOMS_CACHE_FILE = "/tmp/etong_rooms_cache.json"
 LOG_FILE = "/var/log/etong.log"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+SSO_SESSION_FILE = "/tmp/etong_sso_session.json"
 
 running = True
 _reauthenticated = False
@@ -420,6 +421,13 @@ def submit_sms_code(session, phone, sms_code, secondary_code, device, locationur
                     log(f"💾 app_token 已保存到 {CONFIG_FILE}")
                 except Exception as e:
                     log(f"⚠️  保存 app_token 失败: {e}")
+            # 此时 session 中有最新的 SSO cookies（含设备信任标记），立即保存
+            try:
+                with open(SSO_SESSION_FILE, 'w') as f:
+                    json.dump(dict(session.cookies), f)
+                log(f"💾 SSO session cookies 已保存 ({len(dict(session.cookies))} 个)")
+            except Exception as e:
+                log(f"⚠️  保存 SSO session cookies 失败: {e}")
             log(f"✅ 短信验证通过！")
             return True
         else:
@@ -1088,6 +1096,19 @@ def sso_login():
     else:
         session = requests.Session()
     session.verify = False
+    
+    # 加载之前保存的 SSO session cookies（含已信任设备标记）
+    try:
+        if os.path.exists(SSO_SESSION_FILE):
+            session.cookies.clear()
+            with open(SSO_SESSION_FILE, 'r') as f:
+                saved_cookies = json.load(f)
+            # curl_cffi Session 的 cookies 是 RequestsCookieJar
+            for name, value in saved_cookies.items():
+                session.cookies.set(name, value, domain="sso.sdjzu.edu.cn", path="/")
+            log(f"🍪 已加载 SSO session cookies ({len(saved_cookies)} 个)")
+    except Exception as e:
+        log(f"⚠️  加载 SSO session cookies 失败: {e}")
 
     try:
         # 1. 获取 RSA 公钥
@@ -1233,6 +1254,14 @@ def sso_login():
                 log("✅ 已获取 CTTICKET")
                 save_ctticket_to_config(cookies)
                 
+                # 在访问 etong 前再保存一次 session cookies（此时可能包含设备信任标记）
+                try:
+                    with open(SSO_SESSION_FILE, 'w') as f:
+                        json.dump(dict(session.cookies), f)
+                    log(f"💾 SSO session cookies (post-redirect) 已保存")
+                except Exception as e:
+                    log(f"⚠️  保存 SSO session cookies 失败: {e}")
+                
                 # 访问 etong 首页提取 etToken（SSO 重定向页面不含 setCookie('etToken',...)）
                 resp_etong = session.get("https://etong.sdjzu.edu.cn/easytong_webapp/index.html", timeout=15)
                 match = re.search(r"setCookie\('etToken',\s*'([^']+)'", resp_etong.text)
@@ -1242,6 +1271,14 @@ def sso_login():
                     log("✅ 已获取并保存 etToken")
                 else:
                     log("⚠️  未能从 etong 首页提取 etToken")
+                
+                # 保存 SSO session cookies（含已信任设备标记，供下次登录复用）
+                try:
+                    with open(SSO_SESSION_FILE, 'w') as f:
+                        json.dump(dict(session.cookies), f)
+                    log(f"💾 SSO session cookies 已保存 ({len(dict(session.cookies))} 个)")
+                except Exception as e:
+                    log(f"⚠️  保存 SSO session cookies 失败: {e}")
                 
                 return cookies
             
@@ -1310,7 +1347,11 @@ def query_balance(cookies_dict=None):
     cookies = {"md5": "1", "etToken": JWT_TOKEN}
     if CTTICKET:
         cookies["CTTICKET"] = CTTICKET
-        cookies["APPCTTICKET"] = CTTICKET
+        # APPCTTICKET 不应带 _webreq 后缀，否则服务器可能不认
+        _appct = CTTICKET
+        if _appct.endswith("_webreq"):
+            _appct = _appct[:-len("_webreq")]
+        cookies["APPCTTICKET"] = _appct
     if cookies_dict:
         cookies.update(cookies_dict)
     try:
