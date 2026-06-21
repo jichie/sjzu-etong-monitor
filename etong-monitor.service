@@ -1,14 +1,16 @@
 [Unit]
-Description=山东建筑大学电费监控服务
-After=network.target
+Description=山东建筑大学 电费监控服务 (etong)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/etong/etong_monitor.py
-Restart=on-failure
-RestartSec=30
-StandardOutput=journal
-StandardError=journal
+Restart=always
+RestartSec=60
+StandardOutput=append:/var/log/etong.log
+StandardError=append:/var/log/etong.log
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
