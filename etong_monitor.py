@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-山东建筑大学 电费监控服务 v9.1
+山东建筑大学 电费监控服务 v9.0
 - 每小时检查电量，低于阈值立即告警
 - 每天 19:10 推送当日电量日报
 - 支持 systemd 开机自启
@@ -114,6 +114,7 @@ LOG_FILE = "/var/log/etong.log"
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 running = True
+_reauthenticated = False
 
 
 def load_config():
@@ -1305,6 +1306,8 @@ def query_balance(cookies_dict=None):
 
 
 def get_balance():
+    global _reauthenticated
+    _reauthenticated = False
     # 优先使用缓存 cookies（由 SSO 登录获取，更可靠）
     cached = load_cookies()
     if cached:
@@ -1322,7 +1325,10 @@ def get_balance():
     try:
         new_cookies = sso_login()
         if new_cookies:
-            return query_balance(new_cookies)
+            balance = query_balance(new_cookies)
+            if balance is not None:
+                _reauthenticated = True
+                return balance
     except Exception as e:
         log(f"❌ SSO 登录失败: {e}")
     log("❌ 所有认证方式均失败")
@@ -1398,6 +1404,13 @@ def check_and_notify():
     log(f"⚡ 当前电量: {balance} 度")
     state["last_balance"] = balance
     state["last_query_time"] = now.strftime('%Y-%m-%d %H:%M:%S')
+    global _reauthenticated
+    if _reauthenticated:
+        room_display = get_room_display()
+        send_notification("✅ 认证已恢复，监控正常运行",
+            f"━━━━━━━━━━━━━━\n🏠 房间: {room_display}\n🔋 当前电量: {balance} 度\n"
+            f"⏰ 时间: {now.strftime('%m-%d %H:%M')}\n━━━━━━━━━━━━━━")
+        _reauthenticated = False
     if balance <= LOW_BALANCE_THRESHOLD:
         last_alert = state.get("last_alert_time", 0)
         if time.time() - last_alert > ALERT_COOLDOWN:
