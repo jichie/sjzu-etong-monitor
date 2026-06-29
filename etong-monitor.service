@@ -6,11 +6,26 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/etong/etong_monitor.py
+
+# 自动重启
 Restart=always
 RestartSec=60
+
+# 日志输出到文件
 StandardOutput=append:/var/log/etong.log
 StandardError=append:/var/log/etong.log
+
+# 环境变量
 Environment=PYTHONUNBUFFERED=1
+
+# 从 .env 文件加载配置（推荐）
+EnvironmentFile=-/opt/etong/.env
+
+# 安全选项
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
 
 [Install]
 WantedBy=multi-user.target
