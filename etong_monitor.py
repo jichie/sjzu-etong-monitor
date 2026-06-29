@@ -64,7 +64,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # 尝试加载 python-dotenv（可选）
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 except ImportError:
     pass
 
@@ -1172,6 +1172,24 @@ def query_balance(cookies_dict: Optional[Dict[str, str]] = None) -> Optional[flo
         log(f"❌ 查询失败: {result.get('msg')}")
         return None
     except Exception as e:
+        # curl_cffi 超时时自动降级到普通 requests 重试一次
+        if USE_CURL_CFFI and "timed out" in str(e):
+            log("⚠️  curl_cffi 超时，切换普通 requests 重试...")
+            import requests as _plain_req
+            try:
+                resp = _plain_req.post(url, data=post_data, headers=headers,
+                                       cookies=cookies, timeout=30, allow_redirects=False)
+                if resp.status_code == 302:
+                    log("❌ CTTICKET 已过期")
+                    return None
+                result = resp.json()
+                if result.get("code") == 1:
+                    return float(result.get("balance", 0))
+                log(f"❌ 查询失败: {result.get('msg')}")
+                return None
+            except Exception as e2:
+                log(f"❌ 普通 requests 重试也失败: {e2}")
+                return None
         log(f"❌ 请求异常: {e}")
         return None
 
@@ -1218,18 +1236,29 @@ def send_notification(title: str, message: str) -> bool:
 
     # 企业微信
     if WECOM_WEBHOOK:
-        try:
-            # 推送不依赖 curl_cffi（企业微信 BoringSSL 兼容性问题），直接用 requests
-            import requests as _req
-            resp = _req.post(
-                WECOM_WEBHOOK,
-                json={"msgtype": "text", "text": {"content": f"{title}\n{message}"}},
-                timeout=10, verify=False,
-            )
-            log(f"📱 企业微信推送成功 (status={resp.status_code})")
-            sent = True
-        except Exception as e:
-            log(f"⚠️  企业微信推送失败: {e}")
+        # 企业微信 API 与本机 OpenSSL 不兼容，改用系统 curl 命令（3 次重试）
+        import subprocess as _sp
+        import json as _json
+        _payload = _json.dumps({"msgtype": "text", "text": {"content": f"{title}\n{message}"}}, ensure_ascii=False)
+        for _attempt in range(3):
+            try:
+                _r = _sp.run(
+                    ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+                     "-X", "POST", WECOM_WEBHOOK,
+                     "-H", "Content-Type: application/json",
+                     "-d", _payload, "--connect-timeout", "10", "--max-time", "15"],
+                    capture_output=True, text=True, timeout=20,
+                )
+                if _r.returncode == 0:
+                    log(f"📱 企业微信推送成功 (HTTP {_r.stdout})")
+                    sent = True
+                    break
+                else:
+                    log(f"⚠️  企业微信推送 curl 失败 (尝试 {_attempt+1}/3): {_r.stderr.strip()}")
+            except Exception as _e:
+                log(f"⚠️  企业微信推送异常 (尝试 {_attempt+1}/3): {_e}")
+                if _attempt < 2:
+                    time.sleep(2)
 
     # Bark (iOS)
     if BARK_KEY:
